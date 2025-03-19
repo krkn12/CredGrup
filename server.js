@@ -13,14 +13,20 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const fs = require('fs');
+const https = require('https'); // Adicionado pra HTTPS
+const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// Conecta ao banco de dados
 connectDB();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Configuração do Multer pra uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = path.join(__dirname, 'uploads');
@@ -38,7 +44,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
@@ -48,6 +54,7 @@ const upload = multer({
   }
 });
 
+// Middleware de autenticação
 const auth = (req, res, next) => {
   const token = req.header('Authorization')?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Token não fornecido' });
@@ -77,7 +84,7 @@ const authenticateAdmin = (req, res, next) => {
   }
 };
 
-// Função centralizada para buscar o preço do WBTC
+// Preço do WBTC
 let lastValidPrice = 481826.0; // Valor inicial (Abril 2024)
 let lastFetchTime = 0;
 const MIN_FETCH_INTERVAL = 10000; // 10 segundos
@@ -193,7 +200,6 @@ async function createAdmin() {
   }
 }
 
-const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -226,7 +232,7 @@ app.post('/api/user/sell-wbtc', auth, async (req, res) => {
     const pontosGanhos = 1;
 
     user.wbtcBalance = Math.max(user.wbtcBalance - wbtcToSell, 0);
-    user.saldoReais = Math.min(user.saldoReAIS + valorLiquido, Number.MAX_SAFE_INTEGER);
+    user.saldoReais = Math.min(user.saldoReais + valorLiquido, Number.MAX_SAFE_INTEGER);
     user.pontos = Math.min(user.pontos + pontosGanhos, Number.MAX_SAFE_INTEGER);
 
     const Transaction = require('./models/Transaction');
@@ -547,7 +553,7 @@ app.get('/api/admin/transactions', authenticateAdmin, async (req, res) => {
     
     let transactions = [];
     try {
-      transactions = await Transaction.find().populate('user', 'name email');
+      transactions = await Transaction.find().populate('userId', 'name email');
     } catch (e) {
       console.log('Modelo de Transaction não encontrado ou erro:', e.message);
     }
@@ -613,10 +619,20 @@ app.get('/api/admin/deposits/:id/comprovante', authenticateAdmin, async (req, re
   }
 });
 
+// Configuração do servidor HTTPS
 const PORT = process.env.PORT || 5000;
+
+const sslOptions = {
+  key: fs.readFileSync('/path/to/your/private-key.pem'),  // Ajuste o caminho
+  cert: fs.readFileSync('/path/to/your/certificate.pem'), // Ajuste o caminho
+};
 
 connectDB().then(() => {
   createAdmin().then(() => {
-    app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+    https.createServer(sslOptions, app).listen(PORT, () => {
+      console.log(`Servidor HTTPS rodando na porta ${PORT}`);
+    });
   });
+}).catch((error) => {
+  console.error('Erro ao conectar ao banco de dados ou iniciar o servidor:', error);
 });
