@@ -1,5 +1,5 @@
+require('dotenv').config({ path: './.env' }); // Caminho relativo
 const axios = require('axios');
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
@@ -623,8 +623,8 @@ app.get('/api/admin/deposits/:id/comprovante', authenticateAdmin, async (req, re
 const PORT = process.env.PORT || 5000;
 
 const sslOptions = {
-  key: fs.readFileSync('ssl/private-key.pem'),  // Ajuste o caminho
-  cert: fs.readFileSync('ssl/certificate.pem'), // Ajuste o caminho
+  key: fs.readFileSync(path.join(__dirname, 'ssl', 'private-key.pem')),
+  cert: fs.readFileSync(path.join(__dirname, 'ssl', 'certificate.pem')),
 };
 
 connectDB().then(() => {
