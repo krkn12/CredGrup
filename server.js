@@ -623,8 +623,8 @@ app.get('/api/admin/deposits/:id/comprovante', authenticateAdmin, async (req, re
 const PORT = process.env.PORT || 5000;
 
 const sslOptions = {
-  key: fs.readFileSync('/path/to/your/private-key.pem'),  // Ajuste o caminho
-  cert: fs.readFileSync('/path/to/your/certificate.pem'), // Ajuste o caminho
+  key: fs.readFileSync('ssl/private-key.pem'),  // Ajuste o caminho
+  cert: fs.readFileSync('ssl/certificate.pem'), // Ajuste o caminho
 };
 
 connectDB().then(() => {
