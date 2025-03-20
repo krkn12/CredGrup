@@ -8,22 +8,16 @@ const register = async (req, res) => {
   const { name, email, phone, password } = req.body;
 
   try {
-    // Verifica se o email já está registrado
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'Email já registrado' });
     }
 
-    // Gera o hash da senha
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Cria o novo usuário
     const user = new User({
       name,
       email,
       phone,
-      password: hashedPassword, // Senha hasheada
+      password, // Senha pura
       saldoReais: 0,
       wbtcBalance: 0,
       pontos: 0,

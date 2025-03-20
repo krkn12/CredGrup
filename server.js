@@ -24,7 +24,7 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Configuração do Multer pra uploads
 const storage = multer.diskStorage({
@@ -619,6 +619,90 @@ app.get('/api/admin/deposits/:id/comprovante', authenticateAdmin, async (req, re
   }
 });
 
+
+// Rota pra consultar investimentos do usuário
+app.get('/api/investments/me', auth, async (req, res) => {
+  try {
+    const Investment = require('./models/Investment');
+    const investment = await Investment.findOne({ userId: req.user.id });
+    if (!investment) {
+      return res.status(200).json({ amount: 0, initialDate: null, canWithdraw: false, profit: 0 });
+    }
+
+    const oneYearLater = new Date(investment.initialDate);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    const canWithdraw = new Date() >= oneYearLater;
+    const profit = investment.amount * 0.15; // 15% ao ano
+
+    res.json({
+      amount: investment.amount,
+      initialDate: investment.initialDate,
+      lastAddedDate: investment.lastAddedDate,
+      canWithdraw,
+      profit,
+    });
+  } catch (error) {
+    console.error('Erro ao buscar investimentos:', error);
+    res.status(500).json({ error: 'Erro ao buscar investimentos' });
+  }
+});
+
+// Rota pra resgatar investimento
+app.post('/api/investments/withdraw', auth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const Investment = require('./models/Investment');
+    const User = require('./models/User');
+    
+    const investment = await Investment.findOne({ userId: req.user.id }).session(session);
+    if (!investment) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: 'Nenhum investimento encontrado' });
+    }
+
+    const oneYearLater = new Date(investment.initialDate);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    if (new Date() < oneYearLater) {
+      await session.abortTransaction();
+      return res.status(400).json({ error: 'O resgate só é permitido após 1 ano do primeiro investimento' });
+    }
+
+    const user = await User.findById(req.user.id).session(session);
+    const profit = investment.amount * 0.15;
+    const totalWithdraw = investment.amount + profit;
+
+    user.saldoReais += totalWithdraw;
+    await Investment.deleteOne({ userId: req.user.id }).session(session);
+    await user.save({ session });
+
+    await session.commitTransaction();
+    res.json({
+      message: 'Resgate concluído com sucesso',
+      amountWithdrawn: totalWithdraw,
+      saldoReais: user.saldoReais,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Erro ao resgatar investimento:', error);
+    res.status(500).json({ error: 'Erro ao processar resgate' });
+  } finally {
+    session.endSession();
+  }
+});
+
+// Rota admin pra listar todos os investimentos
+app.get('/api/admin/investments', authenticateAdmin, async (req, res) => {
+  try {
+    const Investment = require('./models/Investment');
+    const investments = await Investment.find().populate('userId', 'name email');
+    res.json(investments);
+  } catch (error) {
+    console.error('Erro ao buscar investimentos admin:', error);
+    res.status(500).json({ error: 'Erro ao buscar investimentos' });
+  }
+});
 // Configuração do servidor HTTPS
 const PORT = process.env.PORT || 5000;
 
