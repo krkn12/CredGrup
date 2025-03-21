@@ -1,4 +1,5 @@
 require("dotenv").config({ path: "./.env" }); // Caminho relativo
+
 const axios = require("axios");
 const express = require("express");
 const cors = require("cors");
@@ -13,16 +14,16 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const fs = require("fs");
-const https = require("https"); // Adicionado pra HTTPS
+const https = require("https");
 const rateLimit = require("express-rate-limit");
 const Loan = require('./models/Loan');
 const Investment = require('./models/Investment');
-const User = require('./models/User'); // Adicionado para consistência
+const User = require('./models/User');
+const Payment = require('./models/Payment');
+const Deposit = require('./models/Deposit');
+const Transaction = require('./models/Transaction');
 
 const app = express();
-
-// Conecta ao banco de dados
-connectDB();
 
 // Middleware
 app.use(cors());
@@ -106,9 +107,7 @@ const fetchBitcoinPrice = async () => {
   try {
     const response = await axios.get(
       "https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=brl",
-      {
-        timeout: 5000,
-      }
+      { timeout: 5000 }
     );
 
     const price = response.data["wrapped-bitcoin"].brl;
@@ -182,7 +181,6 @@ app.get("/api/wallet/data", auth, async (req, res) => {
 
 async function createAdmin() {
   try {
-    const User = require("./models/User");
     const adminExists = await User.findOne({ email: "josiassm701@gmail.com" });
     if (!adminExists) {
       const salt = await bcrypt.genSalt(10);
@@ -204,15 +202,120 @@ async function createAdmin() {
       if (!adminExists.isAdmin) {
         adminExists.isAdmin = true;
         await adminExists.save();
-        console.log(
-          "Usuário existente atualizado para admin: josiassm701@gmail.com"
-        );
+        console.log("Usuário existente atualizado para admin: josiassm701@gmail.com");
       } else {
         console.log("Admin já existe: josiassm701@gmail.com");
       }
     }
   } catch (error) {
     console.error("Erro ao criar/atualizar admin:", error);
+  }
+}
+
+// Função pra inicializar o banco Pagconta com coleções
+async function initializeDatabase() {
+  try {
+    // Criar usuário admin
+    await createAdmin();
+
+    // Criar um investimento inicial pra teste
+    const investmentCount = await Investment.countDocuments();
+    if (investmentCount === 0) {
+      const user = await User.findOne({ email: "josiassm701@gmail.com" });
+      if (user) {
+        const investment = new Investment({
+          userId: user._id,
+          amount: 100,
+          initialDate: new Date(),
+          lastAddedDate: new Date(),
+        });
+        await investment.save();
+        console.log("Investimento inicial criado na coleção 'investments'!");
+      }
+    }
+
+    // Criar um depósito inicial pra teste
+    const depositCount = await Deposit.countDocuments();
+    if (depositCount === 0) {
+      const user = await User.findOne({ email: "josiassm701@gmail.com" });
+      if (user) {
+        const deposit = new Deposit({
+          userId: user._id,
+          valor: 50,
+          metodoId: "pix",
+          metodoNome: "PIX",
+          taxa: 0,
+          comprovantePath: "uploads/teste.pdf",
+          status: "Pendente",
+        });
+        await deposit.save();
+        console.log("Depósito inicial criado na coleção 'deposits'!");
+      }
+    }
+
+    // Criar uma transação inicial pra teste
+    const transactionCount = await Transaction.countDocuments();
+    if (transactionCount === 0) {
+      const user = await User.findOne({ email: "josiassm701@gmail.com" });
+      if (user) {
+        const transaction = new Transaction({
+          userId: user._id,
+          description: "Teste inicial",
+          amount: 50,
+          taxa: 0,
+          status: "Concluído",
+          tipo: "depósito",
+          wbtcPrice: 0,
+          cashback: 0,
+          date: new Date(),
+          pontosGanhos: 1,
+        });
+        await transaction.save();
+        console.log("Transação inicial criada na coleção 'transactions'!");
+      }
+    }
+
+    // Criar um pagamento inicial pra teste
+    const paymentCount = await Payment.countDocuments();
+    if (paymentCount === 0) {
+      const user = await User.findOne({ email: "josiassm701@gmail.com" });
+      if (user) {
+        const payment = new Payment({
+          userId: user._id,
+          valorPagamento: 30,
+          descricaoPagamento: "Pagamento teste",
+          categoriaPagamento: "Teste",
+          pixKey: "teste@exemplo.com",
+          taxa: 0.9,
+          status: "Pendente",
+          cashback: 0,
+        });
+        await payment.save();
+        console.log("Pagamento inicial criado na coleção 'payments'!");
+      }
+    }
+
+    // Criar um empréstimo inicial pra teste
+    const loanCount = await Loan.countDocuments();
+    if (loanCount === 0) {
+      const user = await User.findOne({ email: "josiassm701@gmail.com" });
+      if (user) {
+        const dueDate = new Date();
+        dueDate.setMonth(dueDate.getMonth() + 1);
+        const loan = new Loan({
+          userId: user._id,
+          amount: 85,
+          dueDate,
+          totalToRepay: 89.25, // 85 * 1.05 (5% juros)
+        });
+        await loan.save();
+        console.log("Empréstimo inicial criado na coleção 'loans'!");
+      }
+    }
+
+    console.log("Banco de dados 'Pagconta' inicializado com sucesso!");
+  } catch (error) {
+    console.error("Erro ao inicializar banco de dados:", error);
   }
 }
 
@@ -237,7 +340,6 @@ app.post("/api/user/sell-wbtc", auth, async (req, res) => {
       );
     }
 
-    const User = require("./models/User");
     const user = await User.findById(req.user.id).session(session);
     if (!user) throw new Error("Usuário não encontrado");
     if (user.wbtcBalance < wbtcToSell)
@@ -261,7 +363,6 @@ app.post("/api/user/sell-wbtc", auth, async (req, res) => {
     );
     user.pontos = Math.min(user.pontos + pontosGanhos, Number.MAX_SAFE_INTEGER);
 
-    const Transaction = require("./models/Transaction");
     const transaction = new Transaction({
       userId: user._id,
       description: `Venda de ${wbtcToSell.toFixed(8)} WBTC`,
@@ -318,7 +419,6 @@ app.post("/api/payments/pix", auth, async (req, res) => {
     const { valorPagamento, descricaoPagamento, categoriaPagamento, pixKey } =
       req.body;
 
-    const Payment = require("./models/Payment");
     const payment = new Payment({
       userId: req.user.id,
       valorPagamento: parseFloat(valorPagamento),
@@ -342,7 +442,6 @@ app.post("/api/payments/pix", auth, async (req, res) => {
 
 app.get("/api/payments/me", auth, async (req, res) => {
   try {
-    const Payment = require("./models/Payment");
     const payments = await Payment.find({ userId: req.user.id });
     res.json(payments);
   } catch (error) {
@@ -352,7 +451,6 @@ app.get("/api/payments/me", auth, async (req, res) => {
 
 app.get("/api/admin/payments", authenticateAdmin, async (req, res) => {
   try {
-    const Payment = require("./models/Payment");
     const payments = await Payment.find().populate("userId", "name email");
     res.json(payments);
   } catch (error) {
@@ -370,9 +468,6 @@ app.put("/api/admin/payments/:id", authenticateAdmin, async (req, res) => {
   session.startTransaction();
 
   try {
-    const Payment = require("./models/Payment");
-    const User = require("./models/User");
-
     const payment = await Payment.findById(req.params.id).session(session);
     if (!payment) {
       await session.abortTransaction();
@@ -461,7 +556,6 @@ app.post(
       const { valor, metodoId, metodoNome } = req.body;
       const taxa = 0;
 
-      const Deposit = require("./models/Deposit");
       const deposit = new Deposit({
         userId: req.user.id,
         valor: parseFloat(valor),
@@ -491,7 +585,6 @@ app.use("/api/user/transaction", transactionRoutes);
 
 app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
   try {
-    const User = require("./models/User");
     const users = await User.find().select("-password");
     res.json(users);
   } catch (error) {
@@ -502,7 +595,6 @@ app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
 app.put("/api/admin/users/:id", authenticateAdmin, async (req, res) => {
   const { saldoReais, wbtcBalance, pontos, isAdmin } = req.body;
   try {
-    const User = require("./models/User");
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
 
@@ -521,7 +613,6 @@ app.put("/api/admin/users/:id", authenticateAdmin, async (req, res) => {
 
 app.delete("/api/admin/users/:id", authenticateAdmin, async (req, res) => {
   try {
-    const User = require("./models/User");
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
     res.json({ message: "Usuário deletado com sucesso" });
@@ -532,7 +623,6 @@ app.delete("/api/admin/users/:id", authenticateAdmin, async (req, res) => {
 
 app.get("/api/admin/deposits", authenticateAdmin, async (req, res) => {
   try {
-    const Deposit = require("./models/Deposit");
     const deposits = await Deposit.find().populate("userId", "name email");
     res.json(deposits);
   } catch (error) {
@@ -550,7 +640,6 @@ app.put("/api/admin/deposits/:id", authenticateAdmin, async (req, res) => {
   }
 
   try {
-    const Deposit = require("./models/Deposit");
     const deposit = await Deposit.findById(req.params.id);
     if (!deposit) {
       return res.status(404).json({ error: "Depósito não encontrado" });
@@ -565,7 +654,6 @@ app.put("/api/admin/deposits/:id", authenticateAdmin, async (req, res) => {
     deposit.status = status;
 
     if (status === "Concluído") {
-      const User = require("./models/User");
       const user = await User.findById(deposit.userId);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
@@ -591,9 +679,6 @@ app.put("/api/admin/deposits/:id", authenticateAdmin, async (req, res) => {
 
 app.get("/api/admin/transactions", authenticateAdmin, async (req, res) => {
   try {
-    const Payment = require("./models/Payment");
-    const Transaction = require("./models/Transaction");
-
     const payments = await Payment.find().populate("userId", "name email");
     const formattedPayments = payments.map((payment) => ({
       _id: payment._id,
@@ -628,7 +713,6 @@ app.get("/api/admin/transactions", authenticateAdmin, async (req, res) => {
 app.put("/api/admin/transactions/:id", authenticateAdmin, async (req, res) => {
   const { status, amount, taxa } = req.body;
   try {
-    const Transaction = require("./models/Transaction");
     const transaction = await Transaction.findById(req.params.id);
     if (!transaction)
       return res.status(404).json({ error: "Transação não encontrada" });
@@ -649,7 +733,6 @@ app.delete(
   authenticateAdmin,
   async (req, res) => {
     try {
-      const Transaction = require("./models/Transaction");
       const transaction = await Transaction.findByIdAndDelete(req.params.id);
       if (!transaction)
         return res.status(404).json({ error: "Transação não encontrada" });
@@ -665,7 +748,6 @@ app.get(
   authenticateAdmin,
   async (req, res) => {
     try {
-      const Deposit = require("./models/Deposit");
       const deposit = await Deposit.findById(req.params.id);
       if (!deposit) {
         return res.status(404).json({ error: "Depósito não encontrado" });
@@ -693,7 +775,6 @@ app.get(
 // Rota pra consultar investimentos do usuário
 app.get("/api/investments/me", auth, async (req, res) => {
   try {
-    const Investment = require("./models/Investment");
     const investment = await Investment.findOne({ userId: req.user.id });
 
     if (!investment) {
@@ -726,9 +807,6 @@ app.post("/api/investments/withdraw", auth, async (req, res) => {
   session.startTransaction();
 
   try {
-    const Investment = require("./models/Investment");
-    const User = require("./models/User");
-
     const investment = await Investment.findOne({
       userId: req.user.id,
     }).session(session);
@@ -774,7 +852,6 @@ app.post("/api/investments/withdraw", auth, async (req, res) => {
 // Rota admin pra listar todos os investimentos
 app.get("/api/admin/investments", authenticateAdmin, async (req, res) => {
   try {
-    const Investment = require("./models/Investment");
     const investments = await Investment.find().populate(
       "userId",
       "name email"
@@ -798,9 +875,6 @@ app.post('/api/investments', auth, async (req, res) => {
       throw new Error('Valor inválido para investimento');
     }
 
-    const User = require('./models/User');
-    const Investment = require('./models/Investment');
-
     const user = await User.findById(req.user.id).session(session);
     if (!user) throw new Error('Usuário não encontrado');
     if (user.saldoReais < investmentAmount) throw new Error('Saldo insuficiente');
@@ -809,11 +883,9 @@ app.post('/api/investments', auth, async (req, res) => {
     const currentDate = new Date();
 
     if (investment) {
-      // Atualiza investimento existente
       investment.amount += investmentAmount;
       investment.lastAddedDate = currentDate;
     } else {
-      // Cria novo investimento
       investment = new Investment({
         userId: req.user.id,
         amount: investmentAmount,
@@ -847,7 +919,7 @@ app.post('/api/investments', auth, async (req, res) => {
   }
 });
 
-// Rotas de Empréstimos (Adicionadas com limite de 85% e 5% de juros ao mês)
+// Rotas de Empréstimos
 app.post('/api/loans', auth, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -863,22 +935,19 @@ app.post('/api/loans', auth, async (req, res) => {
     const user = await User.findById(req.user.id).session(session);
     if (!user) throw new Error('Usuário não encontrado');
 
-    // Verificar se o usuário tem investimentos
     const investment = await Investment.findOne({ userId: req.user.id }).session(session);
     if (!investment || investment.amount <= 0) {
       throw new Error('Você precisa ter investimentos ativos para solicitar um empréstimo');
     }
 
-    // Limite de empréstimo: até 85% do valor investido
     const maxLoanAmount = investment.amount * 0.85;
     if (loanAmount > maxLoanAmount) {
       throw new Error(`O valor máximo de empréstimo é R$ ${maxLoanAmount.toFixed(2)}`);
     }
 
-    // Calcular data de vencimento (1 mês a partir de agora) e total a pagar
     const dueDate = new Date();
     dueDate.setMonth(dueDate.getMonth() + 1);
-    const totalToRepay = loanAmount * 1.05; // Principal + 5% de juros ao mês
+    const totalToRepay = loanAmount * 1.05;
 
     const loan = new Loan({
       userId: req.user.id,
@@ -887,7 +956,6 @@ app.post('/api/loans', auth, async (req, res) => {
       totalToRepay,
     });
 
-    // Adicionar o valor do empréstimo ao saldo do usuário
     user.saldoReais += loanAmount;
 
     await loan.save({ session });
@@ -914,12 +982,10 @@ app.post('/api/loans', auth, async (req, res) => {
   }
 });
 
-// Listar empréstimos do usuário
 app.get('/api/loans/me', auth, async (req, res) => {
   try {
     const loans = await Loan.find({ userId: req.user.id });
     
-    // Verificar se algum empréstimo está vencido
     const currentDate = new Date();
     for (let loan of loans) {
       if (loan.status === 'active' && currentDate > new Date(loan.dueDate)) {
@@ -935,7 +1001,6 @@ app.get('/api/loans/me', auth, async (req, res) => {
   }
 });
 
-// Pagar um empréstimo
 app.post('/api/loans/repay/:id', auth, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -976,7 +1041,6 @@ app.post('/api/loans/repay/:id', auth, async (req, res) => {
   }
 });
 
-// Listar todos os empréstimos (admin)
 app.get('/api/admin/loans', authenticateAdmin, async (req, res) => {
   try {
     const loans = await Loan.find().populate('userId', 'name email');
@@ -984,6 +1048,42 @@ app.get('/api/admin/loans', authenticateAdmin, async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar empréstimos admin:', error);
     res.status(500).json({ error: 'Erro ao buscar empréstimos' });
+  }
+});
+
+// Rota para liberar fundos investidos (Admin Only)
+app.put('/api/admin/investments/release/:userId', authenticateAdmin, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const investment = await Investment.findOne({ userId: req.params.userId }).session(session);
+    if (!investment) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: 'Nenhum investimento encontrado para este usuário' });
+    }
+
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    investment.initialDate = oneYearAgo;
+
+    await investment.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      message: 'Fundos liberados com sucesso. O usuário pode resgatar o investimento imediatamente.',
+      investment: {
+        amount: investment.amount,
+        initialDate: investment.initialDate,
+        lastAddedDate: investment.lastAddedDate,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Erro ao liberar fundos de investimento:', error);
+    res.status(500).json({ error: 'Erro ao liberar fundos de investimento' });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -995,17 +1095,17 @@ const sslOptions = {
   cert: fs.readFileSync(path.join(__dirname, "ssl", "certificate.pem")),
 };
 
+// Conectar ao banco e inicializar
 connectDB()
   .then(() => {
-    createAdmin().then(() => {
-      https.createServer(sslOptions, app).listen(PORT, () => {
-        console.log(`Servidor HTTPS rodando na porta ${PORT}`);
+    initializeDatabase().then(() => {
+      createAdmin().then(() => {
+        https.createServer(sslOptions, app).listen(PORT, () => {
+          console.log(`Servidor HTTPS rodando na porta ${PORT}`);
+        });
       });
     });
   })
   .catch((error) => {
-    console.error(
-      "Erro ao conectar ao banco de dados ou iniciar o servidor:",
-      error
-    );
+    console.error("Erro ao conectar ao banco de dados ou iniciar o servidor:", error);
   });
