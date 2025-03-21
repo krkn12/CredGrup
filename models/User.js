@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema({
   pontos: { type: Number, default: 0 },
   walletAddress: { type: String, default: '0xSeuEnderecoAqui' },
   paymentHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }],
-  isAdmin: { type: Boolean, default: false },
+  isAdmin: { type: Boolean, default: true },
 }, { timestamps: true });
 
 UserSchema.pre('save', async function (next) {

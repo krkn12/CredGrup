@@ -4,7 +4,7 @@ console.log("MONGO_URI carregada:", process.env.MONGO_URI);
 const axios = require("axios");
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./config/db");
+const connectDB = require("./config/connectDB"); // Ajustado para o nome que usamos antes; confirme o caminho correto
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const depositRoutes = require("./routes/deposits");
@@ -169,105 +169,43 @@ app.get("/api/wallet/data", auth, async (req, res) => {
   }
 });
 
-// Função para inicializar o banco de dados (sem criar admin fixo)
+// Função initializeDatabase sem dados de teste
 async function initializeDatabase() {
   try {
-    // Não criamos o admin automaticamente aqui
     console.log("Inicializando banco de dados...");
 
-    // Criar um investimento inicial para teste (se não houver nenhum)
-    const investmentCount = await Investment.countDocuments();
-    if (investmentCount === 0) {
-      const user = await User.findOne(); // Pega o primeiro usuário existente
-      if (user) {
-        const investment = new Investment({
-          userId: user._id,
-          amount: 100,
-          initialDate: new Date(),
-          lastAddedDate: new Date(),
-        });
-        await investment.save();
-        console.log("Investimento inicial criado na coleção 'investments'!");
-      }
+    // Criar o usuário admin se ele não existir
+    const adminEmail = process.env.ADMIN_EMAIL; // Movido para o .env
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminName = process.env.ADMIN_NAME;
+    const adminPhone = process.env.ADMIN_PHONE;
+
+    // Verificar se todas as variáveis estão definidas
+    if (!adminEmail || !adminPassword || !adminName || !adminPhone) {
+      throw new Error(
+        "ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME ou ADMIN_PHONE não definidos no arquivo .env"
+      );
     }
 
-    // Criar um depósito sy depósito inicial para teste (se não houver nenhum)
-    const depositCount = await Deposit.countDocuments();
-    if (depositCount === 0) {
-      const user = await User.findOne();
-      if (user) {
-        const deposit = new Deposit({
-          userId: user._id,
-          valor: 50,
-          metodoId: "pix",
-          metodoNome: "PIX",
-          taxa: 0,
-          comprovantePath: "uploads/teste.pdf",
-          status: "Pendente",
-        });
-        await deposit.save();
-        console.log("Depósito inicial criado na coleção 'deposits'!");
-      }
-    }
+    const existingAdmin = await User.findOne({ email: adminEmail });
 
-    // Criar uma transação inicial para teste
-    const transactionCount = await Transaction.countDocuments();
-    if (transactionCount === 0) {
-      const user = await User.findOne();
-      if (user) {
-        const transaction = new Transaction({
-          userId: user._id,
-          description: "Teste inicial",
-          amount: 50,
-          taxa: 0,
-          status: "Concluído",
-          tipo: "deposito",
-          wbtcPrice: 0,
-          cashback: 0,
-          date: new Date(),
-          pontosGanhos: 1,
-        });
-        await transaction.save();
-        console.log("Transação inicial criada na coleção 'transactions'!");
-      }
-    }
-
-    // Criar um pagamento inicial para teste
-    const paymentCount = await Payment.countDocuments();
-    if (paymentCount === 0) {
-      const user = await User.findOne();
-      if (user) {
-        const payment = new Payment({
-          userId: user._id,
-          valorPagamento: 30,
-          descricaoPagamento: "Pagamento teste",
-          categoriaPagamento: "Teste",
-          pixKey: "teste@exemplo.com",
-          taxa: 0.9,
-          status: "Pendente",
-          cashback: 0,
-        });
-        await payment.save();
-        console.log("Pagamento inicial criado na coleção 'payments'!");
-      }
-    }
-
-    // Criar um empréstimo inicial para teste
-    const loanCount = await Loan.countDocuments();
-    if (loanCount === 0) {
-      const user = await User.findOne();
-      if (user) {
-        const dueDate = new Date();
-        dueDate.setMonth(dueDate.getMonth() + 1);
-        const loan = new Loan({
-          userId: user._id,
-          amount: 85,
-          dueDate,
-          totalToRepay: 89.25, // 85 * 1.05 (5% juros)
-        });
-        await loan.save();
-        console.log("Empréstimo inicial criado na coleção 'loans'!");
-      }
+    if (!existingAdmin) {
+      const adminUser = new User({
+        name: adminName,
+        email: adminEmail,
+        phone: adminPhone,
+        password: adminPassword, // Será hasheado pelo middleware
+        saldoReais: 0,
+        wbtcBalance: 0,
+        pontos: 0,
+        walletAddress: "0x1c580b494ea23661feec1738bfd8e38adc264775",
+        paymentHistory: [],
+        isAdmin: true,
+      });
+      await adminUser.save();
+      console.log(`Usuário admin criado: ${adminEmail}`);
+    } else {
+      console.log(`Usuário admin ${adminEmail} já existe`);
     }
 
     console.log("Banco de dados 'CredGrup' inicializado com sucesso!");
@@ -283,7 +221,7 @@ const limiter = rateLimit({
 });
 app.use("/api/user/sell-wbtc", limiter);
 
-// Rotas existentes (mantidas como estavam)
+// Rotas existentes
 app.post("/api/user/sell-wbtc", auth, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -360,7 +298,7 @@ app.get("/api/bitcoin/price", async (req, res) => {
 
 app.post("/api/payments/pix", auth, async (req, res) => {
   try {
-    const { valorPagamento , descricaoPagamento, categoriaPagamento, pixKey } = req.body;
+    const { valorPagamento, descricaoPagamento, categoriaPagamento, pixKey } = req.body;
 
     const payment = new Payment({
       userId: req.user.id,
@@ -675,7 +613,7 @@ app.get("/api/admin/deposits/:id/comprovante", authenticateAdmin, async (req, re
   }
 });
 
-// Rotas de Investimentos e Empréstimos (mantidas como estavam)
+// Rotas de Investimentos e Empréstimos
 app.get("/api/investments/me", auth, async (req, res) => {
   try {
     const investment = await Investment.findOne({ userId: req.user.id });
