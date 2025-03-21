@@ -1,4 +1,5 @@
 require("dotenv").config({ path: "./.env" }); // Caminho relativo
+console.log("MONGO_URI carregada:", process.env.MONGO_URI); // Adicionado para verificar o carregamento
 
 const axios = require("axios");
 const express = require("express");
@@ -264,7 +265,7 @@ async function initializeDatabase() {
           amount: 50,
           taxa: 0,
           status: "Concluído",
-          tipo: "depósito",
+          tipo: "deposito",
           wbtcPrice: 0,
           cashback: 0,
           date: new Date(),
@@ -313,7 +314,7 @@ async function initializeDatabase() {
       }
     }
 
-    console.log("Banco de dados 'Pagconta' inicializado com sucesso!");
+    console.log("Banco de dados 'CredGrup' inicializado com sucesso!"); // Alterado de 'Pagconta' para 'CredGrup'
   } catch (error) {
     console.error("Erro ao inicializar banco de dados:", error);
   }
@@ -739,9 +740,8 @@ app.delete(
       res.json({ message: "Transação deletada com sucesso" });
     } catch (error) {
       res.status(500).json({ error: "Erro ao deletar transação" });
-    }
   }
-);
+});
 
 app.get(
   "/api/admin/deposits/:id/comprovante",
