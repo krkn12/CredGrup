@@ -2,15 +2,11 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`MongoDB Conectado: ${conn.connection.host}, Banco: ${conn.connection.name}`);
     return conn;
   } catch (error) {
-    console.error(`Erro na conexão com o MongoDB: ${error.message}`);
-    console.error("MONGO_URI usada:", process.env.MONGO_URI);
+    console.error(`Erro na conexão: ${error.message}`);
     process.exit(1);
   }
 };

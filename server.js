@@ -1,15 +1,10 @@
 require("dotenv").config({ path: "./.env" });
-console.log("Variáveis de ambiente carregadas:");
-console.log("MONGO_URI:", process.env.MONGO_URI);
-console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
-console.log("ADMIN_PASSWORD:", process.env.ADMIN_PASSWORD);
-console.log("ADMIN_NAME:", process.env.ADMIN_NAME);
-console.log("ADMIN_PHONE:", process.env.ADMIN_PHONE);
+console.log("MONGO_URI carregada:", process.env.MONGO_URI);
 
 const axios = require("axios");
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./config/connectDB"); // Ajustado para o nome que usamos antes; confirme o caminho correto
+const connectDatabase = require("./config/connectDB"); // Renomeado para evitar conflitos
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const depositRoutes = require("./routes/deposits");
@@ -28,6 +23,8 @@ const User = require("./models/User");
 const Payment = require("./models/Payment");
 const Deposit = require("./models/Deposit");
 const Transaction = require("./models/Transaction");
+
+console.log("connectDatabase importado:", typeof connectDatabase); // Verifica se é uma função
 
 const app = express();
 
@@ -174,6 +171,7 @@ app.get("/api/wallet/data", auth, async (req, res) => {
   }
 });
 
+// Função initializeDatabase
 async function initializeDatabase() {
   try {
     console.log("Inicializando banco de dados...");
@@ -212,7 +210,7 @@ async function initializeDatabase() {
     console.log(`Banco de dados '${mongoose.connection.name}' inicializado com sucesso!`);
   } catch (error) {
     console.error("Erro ao inicializar banco de dados:", error.message);
-    throw error; // Propaga o erro para o chamador
+    throw error;
   }
 }
 
@@ -924,7 +922,7 @@ const sslOptions = {
 };
 
 // Conectar ao banco e inicializar
-connectDB()
+connectDatabase()
   .then(() => {
     initializeDatabase()
       .then(() => {
@@ -933,7 +931,7 @@ connectDB()
         });
       })
       .catch((error) => {
-        console.error("Erro durante a inicialização do banco de dados:", error);
+        console.error("Erro ao inicializar o banco de dados:", error);
         process.exit(1);
       });
   })
