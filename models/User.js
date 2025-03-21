@@ -11,14 +11,18 @@ const UserSchema = new mongoose.Schema({
   pontos: { type: Number, default: 0 },
   walletAddress: { type: String, default: '0xSeuEnderecoAqui' },
   paymentHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }],
-  isAdmin: { type: Boolean, default: true },
+  isAdmin: { type: Boolean, default: false }, // Corrigido para false
 }, { timestamps: true });
 
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error); // Passa o erro para ser tratado
+  }
 });
 
 UserSchema.methods.matchPassword = async function (enteredPassword) {

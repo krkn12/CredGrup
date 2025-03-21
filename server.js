@@ -1,5 +1,10 @@
 require("dotenv").config({ path: "./.env" });
-console.log("MONGO_URI carregada:", process.env.MONGO_URI);
+console.log("Variáveis de ambiente carregadas:");
+console.log("MONGO_URI:", process.env.MONGO_URI);
+console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
+console.log("ADMIN_PASSWORD:", process.env.ADMIN_PASSWORD);
+console.log("ADMIN_NAME:", process.env.ADMIN_NAME);
+console.log("ADMIN_PHONE:", process.env.ADMIN_PHONE);
 
 const axios = require("axios");
 const express = require("express");
@@ -169,18 +174,15 @@ app.get("/api/wallet/data", auth, async (req, res) => {
   }
 });
 
-// Função initializeDatabase sem dados de teste
 async function initializeDatabase() {
   try {
     console.log("Inicializando banco de dados...");
 
-    // Criar o usuário admin se ele não existir
-    const adminEmail = process.env.ADMIN_EMAIL; // Movido para o .env
+    const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
     const adminName = process.env.ADMIN_NAME;
     const adminPhone = process.env.ADMIN_PHONE;
 
-    // Verificar se todas as variáveis estão definidas
     if (!adminEmail || !adminPassword || !adminName || !adminPhone) {
       throw new Error(
         "ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME ou ADMIN_PHONE não definidos no arquivo .env"
@@ -188,13 +190,12 @@ async function initializeDatabase() {
     }
 
     const existingAdmin = await User.findOne({ email: adminEmail });
-
     if (!existingAdmin) {
       const adminUser = new User({
         name: adminName,
         email: adminEmail,
         phone: adminPhone,
-        password: adminPassword, // Será hasheado pelo middleware
+        password: adminPassword,
         saldoReais: 0,
         wbtcBalance: 0,
         pontos: 0,
@@ -203,14 +204,15 @@ async function initializeDatabase() {
         isAdmin: true,
       });
       await adminUser.save();
-      console.log(`Usuário admin criado: ${adminEmail}`);
+      console.log(`Usuário admin criado com sucesso: ${adminEmail}`);
     } else {
       console.log(`Usuário admin ${adminEmail} já existe`);
     }
 
-    console.log("Banco de dados 'CredGrup' inicializado com sucesso!");
+    console.log(`Banco de dados '${mongoose.connection.name}' inicializado com sucesso!`);
   } catch (error) {
-    console.error("Erro ao inicializar banco de dados:", error);
+    console.error("Erro ao inicializar banco de dados:", error.message);
+    throw error; // Propaga o erro para o chamador
   }
 }
 
@@ -924,12 +926,18 @@ const sslOptions = {
 // Conectar ao banco e inicializar
 connectDB()
   .then(() => {
-    initializeDatabase().then(() => {
-      https.createServer(sslOptions, app).listen(PORT, () => {
-        console.log(`Servidor HTTPS rodando na porta ${PORT}`);
+    initializeDatabase()
+      .then(() => {
+        https.createServer(sslOptions, app).listen(PORT, () => {
+          console.log(`Servidor HTTPS rodando na porta ${PORT}`);
+        });
+      })
+      .catch((error) => {
+        console.error("Erro durante a inicialização do banco de dados:", error);
+        process.exit(1);
       });
-    });
   })
   .catch((error) => {
-    console.error("Erro ao conectar ao banco de dados ou iniciar o servidor:", error);
+    console.error("Erro ao conectar ao banco de dados:", error);
+    process.exit(1);
   });
