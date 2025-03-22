@@ -2,12 +2,9 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Extrair o nome do banco de dados da URI ou usar um padrão
-    const dbName = process.env.MONGO_URI.includes('CredGrup') ? 'CredGrup' : 'CredGrup';
-    
-    // Conectar explicitamente ao banco de dados correto
+    // Especificar explicitamente o nome do banco de dados
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      dbName: dbName
+      dbName: 'CredGrup'  // Forçar o uso deste banco de dados
     });
     
     console.log(`MongoDB Conectado: ${conn.connection.host}, Banco: ${conn.connection.name}`);
