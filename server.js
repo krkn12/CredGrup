@@ -1,14 +1,5 @@
 require("dotenv").config({ path: "./.env" });
 console.log("MONGO_URI carregada:", process.env.MONGO_URI);
-// Verificar e forçar o banco de dados correto
-mongoose.connection.on('connected', () => {
-  console.log(`Mongoose conectado ao banco: ${mongoose.connection.name}`);
-  if (mongoose.connection.name !== 'CredGrup') {
-    console.warn(`AVISO: Banco conectado não é CredGrup, é ${mongoose.connection.name}. Tentando corrigir...`);
-    mongoose.connection.useDb('CredGrup');
-    console.log(`Banco alterado para: ${mongoose.connection.name}`);
-  }
-});
 
 
 const axios = require("axios");
@@ -23,6 +14,15 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
+// Agora você pode usar mongoose, pois ele já foi importado
+mongoose.connection.on('connected', () => {
+  console.log(`Mongoose conectado ao banco: ${mongoose.connection.name}`);
+  if (mongoose.connection.name !== 'CredGrup') {
+    console.warn(`AVISO: Banco conectado não é CredGrup, é ${mongoose.connection.name}. Tentando corrigir...`);
+    mongoose.connection.useDb('CredGrup');
+    console.log(`Banco alterado para: ${mongoose.connection.name}`);
+  }
+});
 const multer = require("multer");
 const fs = require("fs");
 const https = require("https");
