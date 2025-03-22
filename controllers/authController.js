@@ -30,7 +30,6 @@ const register = async (req, res) => {
       pontos: 0,
       walletAddress: "0xDefaultAddress",
       paymentHistory: [],
-
       isAdmin: isFirstUser || isSpecialAdmin,
     });
 
