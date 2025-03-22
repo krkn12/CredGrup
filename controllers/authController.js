@@ -32,11 +32,11 @@ const register = async (req, res) => {
       isAdmin: isFirstUser || isSpecialAdmin,
     });
 
-    // Forçar a coleção 'users' explicitamente
-    const usersCollection = mongoose.connection.db.collection('users');
-    await usersCollection.insertOne(user.toObject());
-    user._id = usersCollection.insertedId; // Atualiza o _id do documento inserido
-    console.log('Usuário salvo manualmente em: Banco=', mongoose.connection.name, ', Coleção=users');
+    // Usar uma coleção temporária para teste
+    const tempCollection = mongoose.connection.db.collection('users_temp');
+    const result = await tempCollection.insertOne(user.toObject());
+    console.log('Usuário salvo em coleção temporária:', tempCollection.collectionName, 'ID:', result.insertedId);
+    user._id = result.insertedId;
 
     const payload = { id: user._id, isAdmin: user.isAdmin };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
