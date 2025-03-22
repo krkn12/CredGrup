@@ -16,6 +16,9 @@ const register = async (req, res) => {
 
     const userCount = await User.countDocuments();
     const isFirstUser = userCount === 0;
+    
+    // Verifica se o email corresponde ao email de admin definido nas variáveis de ambiente
+    const isSpecialAdmin = email === process.env.ADMIN_EMAIL;
 
     user = new User({
       name,
@@ -27,7 +30,8 @@ const register = async (req, res) => {
       pontos: 0,
       walletAddress: "0xDefaultAddress",
       paymentHistory: [],
-      isAdmin: isFirstUser,
+
+      isAdmin: isFirstUser || isSpecialAdmin,
     });
 
     await user.save();
@@ -50,8 +54,8 @@ const register = async (req, res) => {
     console.error("Erro ao registrar usuário:", error);
     res.status(500).json({ error: "Erro ao registrar usuário" });
   }
-};
 
+};
 const login = async (req, res) => {
   const { email, password } = req.body;
 
