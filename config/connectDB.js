@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
+    console.log('Conectando ao MongoDB com URI:', process.env.MONGO_URI);
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      dbName: 'CredGrup'  // Forçar o uso deste banco de dados
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
     console.log(`MongoDB Conectado: ${conn.connection.host}, Banco: ${conn.connection.name}`);
     return conn;
