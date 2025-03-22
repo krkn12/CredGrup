@@ -16,8 +16,6 @@ const register = async (req, res) => {
 
     const userCount = await User.countDocuments();
     const isFirstUser = userCount === 0;
-    
-    // Verifica se o email corresponde ao email de admin definido nas variáveis de ambiente
     const isSpecialAdmin = email === process.env.ADMIN_EMAIL;
 
     user = new User({
@@ -34,6 +32,7 @@ const register = async (req, res) => {
     });
 
     await user.save();
+    console.log(`Usuário salvo em: Banco=${mongoose.connection.name}, Coleção=${User.collection.collectionName}`);
 
     const payload = { id: user._id, isAdmin: user.isAdmin };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });

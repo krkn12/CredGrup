@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema({
   walletAddress: { type: String, default: '0xSeuEnderecoAqui' },
   paymentHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }],
   isAdmin: { type: Boolean, default: false },
-}, { timestamps: true });
+}, { timestamps: true, collection: 'users' }); // Força a coleção 'users'
 
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
