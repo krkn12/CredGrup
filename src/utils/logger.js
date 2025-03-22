@@ -26,4 +26,6 @@ const logSensitiveAccess = (req, dataType) => {
   });
 };
 
-module.exports = { ...logger, logSensitiveAccess };
+// Exporta o logger diretamente, sem spread
+module.exports = logger; // Remova o { ...logger, logSensitiveAccess }
+module.exports.logSensitiveAccess = logSensitiveAccess; // Adicione como propriedade separada

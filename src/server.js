@@ -46,20 +46,22 @@ const initializeAdmin = async () => {
   const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
   if (!adminExists) {
     await authService.register({
-      name: 'Josias Admin',
+      name: process.env.ADMIN_NAME,
       email: process.env.ADMIN_EMAIL,
-      phone: '(11) 99999-9999',
+      phone: process.env.ADMIN_PHONE,
       password: process.env.ADMIN_PASSWORD,
       isAdmin: true,
     });
     logger.info('Admin padrão criado com sucesso');
+  } else {
+    logger.info('Admin já existe, pulando criação');
   }
 };
 
 // Iniciar servidor
 const startServer = async () => {
-  await connectDB();
-  await initializeAdmin();
+  await connectDB(); // Conecta ao MongoDB Atlas
+  await initializeAdmin(); // Cria o admin e a coleção 'users' no banco 'credgrup'
 
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
