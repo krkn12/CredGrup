@@ -25,9 +25,8 @@ const DepositSchema = new mongoose.Schema(
     },
     comprovantePath: {
       type: String,
-      required: false, // Alterado para false para permitir atualizações sem este campo
+      required: false,
     },
-
     pontosGanhos: { type: Number, default: 0 },
     status: {
       type: String,
@@ -35,7 +34,7 @@ const DepositSchema = new mongoose.Schema(
       default: "Pendente",
     },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'deposits' }
 );
 
 module.exports = mongoose.model("Deposit", DepositSchema);

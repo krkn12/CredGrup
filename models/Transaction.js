@@ -6,7 +6,7 @@ const TransactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   tipo: { 
     type: String, 
-    enum: ['pagamento', 'venda', 'deposito', 'depósito'], // Adicionado "depósito" com acento
+    enum: ['pagamento', 'venda', 'deposito', 'depósito'],
     required: true 
   },
   taxa: { type: Number, default: 0 },
@@ -14,5 +14,6 @@ const TransactionSchema = new mongoose.Schema({
   cashback: { type: Number, default: 0 },
   pixKey: { type: String },
   wbtcPrice: { type: Number },
-}, { timestamps: true });
+}, { timestamps: true, collection: 'transactions' });
+
 module.exports = mongoose.model('Transaction', TransactionSchema);

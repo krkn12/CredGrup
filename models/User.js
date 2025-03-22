@@ -17,7 +17,7 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true, collection: 'users' });
 
 UserSchema.pre('save', async function (next) {
-  console.log('Pre-save: Coleção atual=', this.collection ? this.collection.collectionName : 'não definida');
+  console.log('Pre-save: Banco atual=', mongoose.connection.name, 'Coleção=', this.collection.collectionName);
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

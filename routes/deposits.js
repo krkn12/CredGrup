@@ -6,16 +6,12 @@ const fs = require('fs');
 const Deposit = require('../models/Deposit');
 const auth = require('../middleware/auth');
 
-// Configurar o multer para armazenar uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads');
-    
-    // Criar diretório se não existir
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
-    
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
@@ -26,9 +22,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    // Aceitar apenas imagens e PDFs
     if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
@@ -37,24 +32,18 @@ const upload = multer({
   }
 });
 
-// Rota para criar um novo depósito
 router.post('/', auth, upload.single('comprovante'), async (req, res) => {
   try {
     console.log('Recebida requisição de depósito:', req.body);
-    
-    // Validar os dados
     const { valor, metodoId, metodoNome } = req.body;
     const taxa = req.body.taxa || 0;
-    
     if (!valor || !metodoId) {
       return res.status(400).json({ message: 'Valor e método de pagamento são obrigatórios' });
     }
-    
     if (!req.file) {
       return res.status(400).json({ message: 'Comprovante é obrigatório' });
     }
-    
-    // Criar o registro de depósito
+    console.log("Banco atual antes de salvar depósito:", mongoose.connection.name);
     const deposit = new Deposit({
       userId: req.user.id,
       valor: parseFloat(valor),
@@ -64,10 +53,8 @@ router.post('/', auth, upload.single('comprovante'), async (req, res) => {
       comprovantePath: req.file.path,
       status: 'Pendente'
     });
-    
     await deposit.save();
     console.log('Depósito salvo com sucesso:', deposit);
-    
     res.status(201).json(deposit);
   } catch (error) {
     console.error('Erro ao processar depósito:', error);
@@ -75,7 +62,6 @@ router.post('/', auth, upload.single('comprovante'), async (req, res) => {
   }
 });
 
-// Rota para listar depósitos do usuário
 router.get('/me', auth, async (req, res) => {
   try {
     const deposits = await Deposit.find({ userId: req.user.id }).sort({ createdAt: -1 });
@@ -86,20 +72,17 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// Rota para verificar atualizações nos depósitos
 router.get('/me/updates', auth, async (req, res) => {
   try {
     const { desde } = req.query;
     const date = desde ? new Date(desde) : new Date(0);
-    
     const updatedDeposits = await Deposit.find({
       userId: req.user.id,
       updatedAt: { $gt: date }
     });
-    
     res.json({
       depositosAtualizados: updatedDeposits.length > 0,
-      saldoAtualizado: false, // O backend decide se o saldo foi atualizado
+      saldoAtualizado: false,
       pontosAtualizados: false
     });
   } catch (error) {

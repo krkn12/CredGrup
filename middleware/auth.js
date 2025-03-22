@@ -1,14 +1,11 @@
 const jwt = require('jsonwebtoken');
 
-// Definir a função de middleware
 const authMiddleware = (req, res, next) => {
   try {
     const token = req.header('Authorization')?.split(' ')[1];
-    
     if (!token) {
       return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
     }
-    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
@@ -18,5 +15,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// Exportar a função
 module.exports = authMiddleware;

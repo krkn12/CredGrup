@@ -2,11 +2,9 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Especificar explicitamente o nome do banco de dados
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       dbName: 'CredGrup'  // Forçar o uso deste banco de dados
     });
-    
     console.log(`MongoDB Conectado: ${conn.connection.host}, Banco: ${conn.connection.name}`);
     return conn;
   } catch (error) {
