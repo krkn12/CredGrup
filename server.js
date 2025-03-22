@@ -170,49 +170,11 @@ app.get("/api/wallet/data", auth, async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar dados da carteira" });
   }
 });
-
 async function initializeDatabase() {
   try {
     console.log("Inicializando banco de dados...");
-
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const adminName = process.env.ADMIN_NAME;
-    const adminPhone = process.env.ADMIN_PHONE;
-
-    if (!adminEmail || !adminPassword || !adminName || !adminPhone) {
-      throw new Error(
-        "ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME ou ADMIN_PHONE não definidos no arquivo .env"
-      );
-    }
-
-    // Verificar se já existe algum admin
-    const existingAdmin = await User.findOne({ isAdmin: true });
-    if (!existingAdmin) {
-      const existingUserWithAdminEmail = await User.findOne({ email: adminEmail });
-      if (!existingUserWithAdminEmail) {
-        const adminUser = new User({
-          name: adminName,
-          email: adminEmail,
-          phone: adminPhone,
-          password: adminPassword,
-          saldoReais: 0,
-          wbtcBalance: 0,
-          pontos: 0,
-          walletAddress: "0x1c580b494ea23661feec1738bfd8e38adc264775",
-          paymentHistory: [],
-          isAdmin: true,
-        });
-        await adminUser.save();
-        console.log(`Usuário admin criado com sucesso: ${adminEmail}`);
-      } else {
-        console.log(`Usuário com email ${adminEmail} já existe e não é admin; mantendo como está`);
-      }
-    } else {
-      console.log("Já existe um administrador no sistema (provavelmente o primeiro usuário registrado)");
-    }
-
     console.log(`Banco de dados '${mongoose.connection.name}' inicializado com sucesso!`);
+    console.log("O primeiro usuário cadastrado será automaticamente o administrador.");
   } catch (error) {
     console.error("Erro ao inicializar banco de dados:", error.message);
     throw error;
