@@ -53,7 +53,6 @@ const register = async (req, res) => {
     console.error("Erro ao registrar usuário:", error);
     res.status(500).json({ error: "Erro ao registrar usuário" });
   }
-
 };
 const login = async (req, res) => {
   const { email, password } = req.body;
