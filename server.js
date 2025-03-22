@@ -1,6 +1,7 @@
 require("dotenv").config({ path: "./.env" });
 console.log("MONGO_URI carregada:", process.env.MONGO_URI);
 
+const mongoose = require("mongoose"); // Importar mongoose no início
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -21,7 +22,6 @@ connectDatabase()
     console.log("Banco conectado:", mongoose.connection.name);
 
     // Importar modelos após a conexão
-    const mongoose = require("mongoose");
     const User = require("./models/User");
     const Deposit = require("./models/Deposit");
     const Transaction = require("./models/Transaction");
@@ -29,7 +29,7 @@ connectDatabase()
     const Loan = require("./models/Loan");
     const Investment = require("./models/Investment");
 
-    // Configuração do Multer (mantida igual, mas movida para cá para garantir que o diretório seja criado após a conexão)
+    // Configuração do Multer
     const multer = require("multer");
     const storage = multer.diskStorage({
       destination: function (req, file, cb) {
@@ -57,7 +57,7 @@ connectDatabase()
       },
     });
 
-    // Middleware de autenticação (movido para cá para garantir que JWT_SECRET esteja carregado)
+    // Middleware de autenticação
     const jwt = require("jsonwebtoken");
     const auth = (req, res, next) => {
       const token = req.header("Authorization")?.split(" ")[1];
@@ -92,7 +92,7 @@ connectDatabase()
     app.use("/api/deposits", require("./routes/deposits"));
     app.use("/api/user/transaction", require("./routes/transactions"));
 
-    // Rotas adicionais (mantidas iguais, mas movidas para cá)
+    // Rotas adicionais
     const axios = require("axios");
     const rateLimit = require("express-rate-limit");
 
@@ -236,7 +236,6 @@ connectDatabase()
       }
     });
 
-    // Outras rotas (mantidas iguais, mas organizadas aqui)
     app.post("/api/payments/pix", auth, async (req, res) => {
       try {
         const { valorPagamento, descricaoPagamento, categoriaPagamento, pixKey } = req.body;
@@ -701,7 +700,7 @@ connectDatabase()
       }
     });
 
-    app.post("/api/loans/repay/:id", auth, async (req, res) => {
+    app.post("/api/lo pesos/repay/:id", auth, async (req, res) => {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
