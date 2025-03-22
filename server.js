@@ -171,7 +171,6 @@ app.get("/api/wallet/data", auth, async (req, res) => {
   }
 });
 
-// Função initializeDatabase
 async function initializeDatabase() {
   try {
     console.log("Inicializando banco de dados...");
@@ -187,24 +186,30 @@ async function initializeDatabase() {
       );
     }
 
-    const existingAdmin = await User.findOne({ email: adminEmail });
+    // Verificar se já existe algum admin
+    const existingAdmin = await User.findOne({ isAdmin: true });
     if (!existingAdmin) {
-      const adminUser = new User({
-        name: adminName,
-        email: adminEmail,
-        phone: adminPhone,
-        password: adminPassword,
-        saldoReais: 0,
-        wbtcBalance: 0,
-        pontos: 0,
-        walletAddress: "0x1c580b494ea23661feec1738bfd8e38adc264775",
-        paymentHistory: [],
-        isAdmin: true,
-      });
-      await adminUser.save();
-      console.log(`Usuário admin criado com sucesso: ${adminEmail}`);
+      const existingUserWithAdminEmail = await User.findOne({ email: adminEmail });
+      if (!existingUserWithAdminEmail) {
+        const adminUser = new User({
+          name: adminName,
+          email: adminEmail,
+          phone: adminPhone,
+          password: adminPassword,
+          saldoReais: 0,
+          wbtcBalance: 0,
+          pontos: 0,
+          walletAddress: "0x1c580b494ea23661feec1738bfd8e38adc264775",
+          paymentHistory: [],
+          isAdmin: true,
+        });
+        await adminUser.save();
+        console.log(`Usuário admin criado com sucesso: ${adminEmail}`);
+      } else {
+        console.log(`Usuário com email ${adminEmail} já existe e não é admin; mantendo como está`);
+      }
     } else {
-      console.log(`Usuário admin ${adminEmail} já existe`);
+      console.log("Já existe um administrador no sistema (provavelmente o primeiro usuário registrado)");
     }
 
     console.log(`Banco de dados '${mongoose.connection.name}' inicializado com sucesso!`);
