@@ -32,11 +32,9 @@ const register = async (req, res) => {
       isAdmin: isFirstUser || isSpecialAdmin,
     });
 
-    // Usar uma coleção temporária para teste
-    const tempCollection = mongoose.connection.db.collection('users_temp');
-    const result = await tempCollection.insertOne(user.toObject());
-    console.log('Usuário salvo em coleção temporária:', tempCollection.collectionName, 'ID:', result.insertedId);
-    user._id = result.insertedId;
+    // Salvar usando o modelo User
+    await user.save();
+    console.log('Usuário salvo na coleção:', User.collection.collectionName);
 
     const payload = { id: user._id, isAdmin: user.isAdmin };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
