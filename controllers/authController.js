@@ -31,8 +31,11 @@ const register = async (req, res) => {
       isAdmin: isFirstUser || isSpecialAdmin,
     });
 
-    await user.save();
-    console.log(`Usuário salvo em: Banco=${mongoose.connection.name}, Coleção=${User.collection.collectionName}`);
+    // Forçar a coleção 'users' explicitamente
+    const usersCollection = mongoose.connection.db.collection('users');
+    await usersCollection.insertOne(user.toObject());
+    user._id = usersCollection.insertedId; // Atualiza o _id do documento inserido
+    console.log('Usuário salvo manualmente em: Banco=', mongoose.connection.name, ', Coleção=users');
 
     const payload = { id: user._id, isAdmin: user.isAdmin };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
