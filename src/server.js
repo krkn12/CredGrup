@@ -18,14 +18,9 @@ const loanRoutes = require('./routes/loanRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// Certificados SSL Autoassinado
-const privateKey = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.key', 'utf8');
-const certificate = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.crt', 'utf8');
-const credentials = { key: privateKey, cert: certificate };
-
 const app = express();
 
-// CORS para Vercel
+// CORS para o domínio
 const cors = require('cors');
 app.use(cors({ origin: 'https://credgrup.click' }));
 
@@ -69,12 +64,17 @@ const initializeAdmin = async () => {
   }
 };
 
+// Configuração HTTPS com certificados
+const privateKey = fs.readFileSync('/home/josias/CredGrup/src/ssl/selfsigned.key', 'utf8');
+const certificate = fs.readFileSync('/home/josias/CredGrup/src/ssl/selfsigned.crt', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
+
 // Iniciar servidor
 const startServer = async () => {
   await connectDB();
   await initializeAdmin();
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 443;
   const server = https.createServer(credentials, app);
   server.listen(PORT, () => {
     logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
