@@ -1,7 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const https = require('https');
-const fs = require('fs');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
@@ -74,10 +72,16 @@ const startServer = async () => {
   await connectDB();
   await initializeAdmin();
 
+<<<<<<< HEAD
   const PORT = process.env.PORT || 443;
   const server = https.createServer(credentials, app);
   server.listen(PORT, () => {
     logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
+=======
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    logger.info(`Servidor rodando na porta ${PORT} com HTTP (SSL gerenciado pela Cloudflare)`);
+>>>>>>> 1ac3ab28f9402832914317fe5669515a63221064
   });
 };
 
