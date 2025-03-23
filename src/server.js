@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const https = require('https');
+const fs = require('fs');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
