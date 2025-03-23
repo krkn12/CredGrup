@@ -19,8 +19,8 @@ const investmentRoutes = require('./routes/investmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
 // Certificados SSL Autoassinado
-const privateKey = fs.readFileSync('/etc/ssl/private/selfsigned.key', 'utf8');
-const certificate = fs.readFileSync('/etc/ssl/certs/selfsigned.crt', 'utf8');
+const privateKey = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.key', 'utf8');
+const certificate = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.crt', 'utf8');
 const credentials = { key: privateKey, cert: certificate };
 
 const app = express();
