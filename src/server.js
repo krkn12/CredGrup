@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const https = require('https');
+const fs = require('fs');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
@@ -16,7 +18,16 @@ const loanRoutes = require('./routes/loanRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
+// Certificados SSL Autoassinado
+const privateKey = fs.readFileSync('/etc/ssl/private/selfsigned.key', 'utf8');
+const certificate = fs.readFileSync('/etc/ssl/certs/selfsigned.crt', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
+
 const app = express();
+
+// CORS para Vercel
+const cors = require('cors');
+app.use(cors({ origin: 'https://credgrup.click' }));
 
 // Segurança
 app.use(securityConfig.helmet);
@@ -60,12 +71,13 @@ const initializeAdmin = async () => {
 
 // Iniciar servidor
 const startServer = async () => {
-  await connectDB(); // Conecta ao MongoDB Atlas
-  await initializeAdmin(); // Cria o admin e a coleção 'users' no banco 'credgrup'
+  await connectDB();
+  await initializeAdmin();
 
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    logger.info(`Servidor rodando na porta ${PORT}`);
+  const server = https.createServer(credentials, app);
+  server.listen(PORT, () => {
+    logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
   });
 };
 
