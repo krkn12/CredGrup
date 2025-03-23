@@ -64,21 +64,30 @@ const initializeAdmin = async () => {
   }
 };
 
-// Configuração HTTPS com certificados
-const privateKey = fs.readFileSync('/home/josias/CredGrup/src/ssl/selfsigned.key', 'utf8');
-const certificate = fs.readFileSync('/home/josias/CredGrup/src/ssl/selfsigned.crt', 'utf8');
-const credentials = { key: privateKey, cert: certificate };
-
 // Iniciar servidor
 const startServer = async () => {
   await connectDB();
   await initializeAdmin();
 
-  const PORT = process.env.PORT || 443;
-  const server = https.createServer(credentials, app);
-  server.listen(PORT, () => {
-    logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
-  });
+  const PORT = process.env.PORT || 3000;
+  
+  try {
+    // Tenta usar HTTPS se os certificados existirem
+    const privateKey = fs.readFileSync(path.join(__dirname, '../ssl/selfsigned.key'), 'utf8');
+    const certificate = fs.readFileSync(path.join(__dirname, '../ssl/selfsigned.crt'), 'utf8');
+    const credentials = { key: privateKey, cert: certificate };
+    
+    const server = https.createServer(credentials, app);
+    server.listen(PORT, () => {
+      logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
+    });
+  } catch (error) {
+    // Fallback para HTTP em caso de erro
+    logger.warn('Certificados SSL não encontrados. Usando HTTP para desenvolvimento.');
+    app.listen(PORT, () => {
+      logger.info(`Servidor rodando na porta ${PORT} em modo HTTP (desenvolvimento)`);
+    });
+  }
 };
 
 startServer();
