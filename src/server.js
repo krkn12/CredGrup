@@ -1,7 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const https = require('https');
-const fs = require('fs');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
@@ -18,14 +16,9 @@ const loanRoutes = require('./routes/loanRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// Certificados SSL Autoassinado
-const privateKey = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.key', 'utf8');
-const certificate = fs.readFileSync('/home/josias/CredGrup/ssl/selfsigned.crt', 'utf8');
-const credentials = { key: privateKey, cert: certificate };
-
 const app = express();
 
-// CORS para Vercel
+// CORS para o domínio
 const cors = require('cors');
 app.use(cors({ origin: 'https://credgrup.click' }));
 
@@ -74,10 +67,9 @@ const startServer = async () => {
   await connectDB();
   await initializeAdmin();
 
-  const PORT = process.env.PORT || 3000;
-  const server = https.createServer(credentials, app);
-  server.listen(PORT, () => {
-    logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    logger.info(`Servidor rodando na porta ${PORT} com HTTP (SSL gerenciado pela Cloudflare)`);
   });
 };
 
