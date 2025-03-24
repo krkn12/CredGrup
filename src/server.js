@@ -1,12 +1,11 @@
 require('dotenv').config();
 const express = require('express');
-const https = require('https');
-const fs = require('fs');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const path = require('path');
+const cors = require('cors');
 
 // Rotas
 const authRoutes = require('./routes/authRoutes');
@@ -20,9 +19,8 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
-// CORS para o domínio
-const cors = require('cors');
-app.use(cors({ origin: 'https://credgrup.click' }));
+// CORS para Vercel
+app.use(cors({ origin: 'https://credgrup.vercel.app' }));
 
 // Segurança
 app.use(securityConfig.helmet);
@@ -41,6 +39,11 @@ app.use('/api/admin', adminRoutes);
 
 // Uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Rota padrão
+app.get('/', (req, res) => {
+    res.send('Servidor CredGrup rodando!');
+});
 
 // Middleware de erro
 app.use(errorMiddleware);
@@ -69,25 +72,10 @@ const startServer = async () => {
   await connectDB();
   await initializeAdmin();
 
-  const PORT = process.env.PORT || 3000;
-  
-  try {
-    // Tenta usar HTTPS se os certificados existirem
-    const privateKey = fs.readFileSync(path.join(__dirname, '../ssl/selfsigned.key'), 'utf8');
-    const certificate = fs.readFileSync(path.join(__dirname, '../ssl/selfsigned.crt'), 'utf8');
-    const credentials = { key: privateKey, cert: certificate };
-    
-    const server = https.createServer(credentials, app);
-    server.listen(PORT, () => {
-      logger.info(`Servidor rodando na porta ${PORT} com HTTPS`);
-    });
-  } catch (error) {
-    // Fallback para HTTP em caso de erro
-    logger.warn('Certificados SSL não encontrados. Usando HTTP para desenvolvimento.');
-    app.listen(PORT, () => {
-      logger.info(`Servidor rodando na porta ${PORT} em modo HTTP (desenvolvimento)`);
-    });
-  }
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
+  });
 };
 
 startServer();
