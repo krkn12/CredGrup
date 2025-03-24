@@ -9,7 +9,7 @@ const connectDB = async () => {
     });
     logger.info('Conectado ao MongoDB com sucesso');
   } catch (error) {
-    logger.error('Erro ao conectar ao MongoDB:', error);
+    logger.error(`Erro ao conectar ao MongoDB: ${error.message}`);
     process.exit(1);
   }
 };

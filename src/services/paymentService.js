@@ -1,27 +1,21 @@
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 
-class PaymentService {
-  async createPayment(paymentData) {
-    const payment = new Payment(paymentData);
-    await payment.save();
-    return payment;
-  }
+const createPayment = async (paymentData) => {
+  const payment = new Payment(paymentData);
+  await payment.save();
+  return payment;
+};
 
-  async getUserPayments(userId) {
-    return await Payment.find({ userId }).sort({ createdAt: -1 });
+const updatePayment = async (id, status) => {
+  const payment = await Payment.findByIdAndUpdate(id, { status }, { new: true }).populate('userId');
+  if (status === 'Concluído') {
+    const user = await User.findById(payment.userId);
+    user.saldoReais -= (payment.valorPagamento + payment.taxa);
+    user.pontos += 1;
+    await user.save();
   }
+  return payment;
+};
 
-  async updatePayment(id, data) {
-    const payment = await Payment.findByIdAndUpdate(id, data, { new: true });
-    if (!payment) throw new Error('Pagamento não encontrado');
-    if (data.status === 'Concluído') {
-      await User.findByIdAndUpdate(payment.userId, {
-        $inc: { saldoReais: -(payment.valorPagamento + payment.taxa), wbtcBalance: payment.cashback },
-      });
-    }
-    return payment;
-  }
-}
-
-module.exports = new PaymentService();
+module.exports = { createPayment, updatePayment };

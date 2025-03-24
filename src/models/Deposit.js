@@ -6,8 +6,8 @@ const depositSchema = new mongoose.Schema({
   metodoId: { type: String, required: true },
   metodoNome: { type: String, required: true },
   taxa: { type: Number, default: 0 },
-  comprovante: { type: String }, // Nome do arquivo no servidor
   status: { type: String, enum: ['Pendente', 'Concluído', 'Rejeitado'], default: 'Pendente' },
+  comprovante: { type: String }, // Nome do arquivo no servidor
 }, { timestamps: true });
 
 module.exports = mongoose.model('Deposit', depositSchema);

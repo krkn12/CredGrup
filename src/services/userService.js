@@ -1,27 +1,9 @@
 const User = require('../models/User');
 
-class UserService {
-  async getAllUsers() {
-    return await User.find().lean();
-  }
+const getUserById = async (id) => User.findById(id).select('-password');
 
-  async getUserById(id) {
-    const user = await User.findById(id).lean();
-    if (!user) throw new Error('Usuário não encontrado');
-    return user;
-  }
+const updateUser = async (id, data) => User.findByIdAndUpdate(id, data, { new: true });
 
-  async updateUser(id, data) {
-    const user = await User.findByIdAndUpdate(id, data, { new: true, runValidators: true });
-    if (!user) throw new Error('Usuário não encontrado');
-    return user;
-  }
+const deleteUser = async (id) => User.findByIdAndDelete(id);
 
-  async deleteUser(id) {
-    const user = await User.findByIdAndDelete(id);
-    if (!user) throw new Error('Usuário não encontrado');
-    return user;
-  }
-}
-
-module.exports = new UserService();
+module.exports = { getUserById, updateUser, deleteUser };

@@ -1,27 +1,20 @@
 const Deposit = require('../models/Deposit');
 const User = require('../models/User');
 
-class DepositService {
-  async createDeposit(depositData) {
-    const deposit = new Deposit(depositData);
-    await deposit.save();
-    return deposit;
-  }
+const createDeposit = async (depositData) => {
+  const deposit = new Deposit(depositData);
+  await deposit.save();
+  return deposit;
+};
 
-  async getUserDeposits(userId) {
-    return await Deposit.find({ userId }).sort({ createdAt: -1 });
+const updateDeposit = async (id, status) => {
+  const deposit = await Deposit.findByIdAndUpdate(id, { status }, { new: true }).populate('userId');
+  if (status === 'Concluído') {
+    const user = await User.findById(deposit.userId);
+    user.saldoReais += deposit.valor;
+    await user.save();
   }
+  return deposit;
+};
 
-  async updateDeposit(id, data) {
-    const deposit = await Deposit.findByIdAndUpdate(id, data, { new: true });
-    if (!deposit) throw new Error('Depósito não encontrado');
-    if (data.status === 'Concluído') {
-      await User.findByIdAndUpdate(deposit.userId, {
-        $inc: { saldoReais: deposit.valor - deposit.taxa },
-      });
-    }
-    return deposit;
-  }
-}
-
-module.exports = new DepositService();
+module.exports = { createDeposit, updateDeposit };

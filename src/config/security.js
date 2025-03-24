@@ -1,20 +1,15 @@
 const helmet = require('helmet');
 
-const securityConfig = {
+module.exports = {
   helmet: helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
-    hsts: { maxAge: 31536000, includeSubDomains: true },
-    xssFilter: true,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   }),
-  jwt: {
-    expiresIn: '1h',
-  },
 };
-
-module.exports = securityConfig;

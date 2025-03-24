@@ -1,25 +1,22 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
-const securityConfig = require('../config/security');
 
-class AuthService {
-  async login(email, password) {
-    const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      throw new Error('Credenciais inválidas');
-    }
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: securityConfig.jwt.expiresIn,
-    });
-    return { token, user: user.toObject({ getters: true }) };
+const register = async ({ name, email, phone, password, isAdmin = false }) => {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = new User({ name, email, phone, password: hashedPassword, isAdmin });
+  await user.save();
+  return user;
+};
+
+const login = async (email, password) => {
+  const user = await User.findOne({ email });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw new Error('Credenciais inválidas');
   }
+  const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return { user: user.toJSON(), token };
+};
 
-  async register(data) {
-    const user = new User(data);
-    await user.save();
-    return user;
-  }
-}
-
-module.exports = new AuthService();
+module.exports = { register, login };

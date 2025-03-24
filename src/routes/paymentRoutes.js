@@ -1,27 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/authMiddleware');
-const paymentService = require('../services/paymentService');
+const paymentController = require('../controllers/paymentController');
 
-router.use(authMiddleware.protect);
-
-router.post('/', async (req, res, next) => {
-  try {
-    const paymentData = { ...req.body, userId: req.user._id };
-    const payment = await paymentService.createPayment(paymentData);
-    res.status(201).json(payment);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/me', async (req, res, next) => {
-  try {
-    const payments = await paymentService.getUserPayments(req.user._id);
-    res.json(payments);
-  } catch (error) {
-    next(error);
-  }
-});
+router.get('/me', paymentController.getUserPayments);
+router.post('/', paymentController.createPayment);
 
 module.exports = router;
