@@ -1,15 +1,16 @@
-const path = require('path'); // Movido para o topo, antes de usar no dotenv
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Carrega o .env da raizconst express = require('express');
+const path = require('path'); // Declarado apenas uma vez no topo
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Carrega o .env da raiz
+const express = require('express');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const authMiddleware = require('./middleware/authMiddleware');
 const rateLimitMiddleware = require('./middleware/rateLimitMiddleware');
-const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
 
+// Configuração do Multer para uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads')),
   filename: (req, file, cb) => {
@@ -63,13 +64,16 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   try {
     const User = require('./models/User');
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
     res.json({
       wbtcBalance: user.wbtcBalance || 0,
       lastUpdated: user.updatedAt || new Date(),
     });
   } catch (error) {
     logger.error(`Erro ao obter dados da carteira: ${error.message}`);
-    res.status(500).json({ message: 'Erro ao obter dados da carteira' });
+    res.status(500).json({ message: 'Erro interno ao obter dados da carteira' });
   }
 });
 
@@ -102,21 +106,34 @@ const initializeAdmin = async () => {
     }
   } catch (error) {
     logger.error(`Erro ao inicializar admin: ${error.message}`);
-    process.exit(1);
+    throw error; // Propaga o erro para o startServer
   }
 };
 
-// Iniciar servidor
+// Iniciar servidor com tratamento de erros
 const startServer = async () => {
   try {
+    logger.info('Iniciando o servidor...');
     await connectDB();
     await initializeAdmin();
+
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
     });
+
+    // Tratamento de erros não capturados
+    process.on('uncaughtException', (error) => {
+      logger.error(`Erro não capturado: ${error.message}`);
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error(`Rejeição não tratada: ${reason}`);
+      process.exit(1);
+    });
   } catch (error) {
-    logger.error(`Erro ao iniciar servidor: ${error.message}`);
+    logger.error(`Erro ao iniciar o servidor: ${error.message}`);
     process.exit(1);
   }
 };
