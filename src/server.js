@@ -31,6 +31,9 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
+// Confiar em proxies para express-rate-limit (corrige ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set('trust proxy', 1); // Confia no primeiro proxy (ajuste conforme necessário)
+
 // CORS
 app.use(cors({ origin: 'https://credgrup.vercel.app' }));
 
