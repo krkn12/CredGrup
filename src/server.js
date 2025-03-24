@@ -1,5 +1,5 @@
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Garante que o .env na raiz seja carregado
-const express = require('express');
+const path = require('path'); // Movido para o topo, antes de usar no dotenv
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Carrega o .env da raizconst express = require('express');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
 const logger = require('./utils/logger');
