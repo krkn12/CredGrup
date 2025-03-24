@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Garante que o .env na raiz seja carregado
 const express = require('express');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
@@ -31,8 +31,8 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
-// Confiar em proxies para express-rate-limit (corrige ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
-app.set('trust proxy', 1); // Confia no primeiro proxy (ajuste conforme necessário)
+// Confiar em proxies para express-rate-limit
+app.set('trust proxy', 1);
 
 // CORS
 app.use(cors({ origin: 'https://credgrup.vercel.app' }));
@@ -68,6 +68,7 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
       lastUpdated: user.updatedAt || new Date(),
     });
   } catch (error) {
+    logger.error(`Erro ao obter dados da carteira: ${error.message}`);
     res.status(500).json({ message: 'Erro ao obter dados da carteira' });
   }
 });
@@ -85,30 +86,39 @@ app.use(errorMiddleware);
 const initializeAdmin = async () => {
   const User = require('./models/User');
   const authService = require('./services/authService');
-  const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
-  if (!adminExists) {
-    await authService.register({
-      name: process.env.ADMIN_NAME,
-      email: process.env.ADMIN_EMAIL,
-      phone: process.env.ADMIN_PHONE,
-      password: process.env.ADMIN_PASSWORD,
-      isAdmin: true,
-    });
-    logger.info('Admin padrão criado com sucesso');
-  } else {
-    logger.info('Admin já existe, pulando criação');
+  try {
+    const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
+    if (!adminExists) {
+      await authService.register({
+        name: process.env.ADMIN_NAME,
+        email: process.env.ADMIN_EMAIL,
+        phone: process.env.ADMIN_PHONE,
+        password: process.env.ADMIN_PASSWORD,
+        isAdmin: true,
+      });
+      logger.info('Admin padrão criado com sucesso');
+    } else {
+      logger.info('Admin já existe, pulando criação');
+    }
+  } catch (error) {
+    logger.error(`Erro ao inicializar admin: ${error.message}`);
+    process.exit(1);
   }
 };
 
 // Iniciar servidor
 const startServer = async () => {
-  await connectDB();
-  await initializeAdmin();
-
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, '0.0.0.0', () => {
-    logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
-  });
+  try {
+    await connectDB();
+    await initializeAdmin();
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, '0.0.0.0', () => {
+      logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
+    });
+  } catch (error) {
+    logger.error(`Erro ao iniciar servidor: ${error.message}`);
+    process.exit(1);
+  }
 };
 
 startServer();
