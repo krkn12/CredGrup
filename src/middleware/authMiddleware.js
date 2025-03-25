@@ -1,25 +1,22 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
-const authMiddleware = async (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  console.log('Token recebido no authMiddleware:', token); // Adicione este log
-  if (!token) {
-    return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
-  }
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decodificado:', decoded); // Adicione este log
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) {
-      return res.status(401).json({ message: 'Usuário não encontrado.' });
+const authMiddleware = (req, res, next) => {
+    try {
+        const authHeader = req.header('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).send({ error: 'Token não fornecido' });
+        }
+
+        const token = authHeader.replace('Bearer ', '');
+        console.log('Token recebido no authMiddleware:', token);
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('Erro no authMiddleware:', error.message);
+        res.status(401).send({ error: 'Autenticação falhou' });
     }
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Erro no authMiddleware:', error.message);
-    res.status(401).json({ message: 'Token inválido.' });
-  }
 };
 
 module.exports = authMiddleware;
