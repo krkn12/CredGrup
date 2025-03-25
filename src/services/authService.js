@@ -16,7 +16,17 @@ const login = async (email, password) => {
     throw new Error('Credenciais inválidas');
   }
   const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  return { user: user.toJSON(), token };
+  return {
+    token,
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    saldoReais: user.saldoReais,
+    wbtcBalance: user.wbtcBalance,
+    pontos: user.pontos,
+    walletAddress: user.walletAddress || '',
+    isAdmin: user.isAdmin,
+  };
 };
 
 module.exports = { register, login };

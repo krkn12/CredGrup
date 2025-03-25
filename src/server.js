@@ -1,11 +1,10 @@
-const path = require('path'); // Declarado apenas uma vez no topo
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Carrega o .env da raiz
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-// Logs de depuração para verificar módulos
 console.log('Caminho do dotenv:', require.resolve('dotenv'));
 console.log('Caminho do express:', require.resolve('express'));
-console.log('Caminho do cookie-signature:', require.resolve('cookie-signature')); // Dependência interna do express
-console.log('Caminho do cookie:', require.resolve('cookie')); // Dependência interna do express
+console.log('Caminho do cookie-signature:', require.resolve('cookie-signature'));
+console.log('Caminho do cookie:', require.resolve('cookie'));
 
 const express = require('express');
 const connectDB = require('./config/database');
@@ -16,6 +15,7 @@ const authMiddleware = require('./middleware/authMiddleware');
 const rateLimitMiddleware = require('./middleware/rateLimitMiddleware');
 const cors = require('cors');
 const multer = require('multer');
+const Config = require('./models/Config');
 
 // Configuração do Multer para uploads
 const storage = multer.diskStorage({
@@ -84,6 +84,48 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   }
 });
 
+// Rotas de configuração
+app.get('/api/admin/config', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ message: 'Acesso negado' });
+    }
+    const config = await Config.findOne();
+    if (!config) {
+      return res.status(404).json({ message: 'Configuração não encontrada' });
+    }
+    res.json(config);
+  } catch (error) {
+    logger.error(`Erro ao obter configuração: ${error.message}`);
+    res.status(500).json({ message: 'Erro ao obter configuração' });
+  }
+});
+
+app.put('/api/admin/config', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ message: 'Acesso negado' });
+    }
+    const { loanInterestRate, investmentInterestRate } = req.body;
+    if (loanInterestRate < 0 || investmentInterestRate < 0) {
+      return res.status(400).json({ message: 'As taxas não podem ser negativas' });
+    }
+    const config = await Config.findOneAndUpdate(
+      {},
+      { 
+        loanInterestRate, 
+        investmentInterestRate,
+        updatedAt: new Date()
+      },
+      { new: true, upsert: true }
+    );
+    res.json(config);
+  } catch (error) {
+    logger.error(`Erro ao atualizar configuração: ${error.message}`);
+    res.status(500).json({ message: 'Erro ao atualizar configuração' });
+  }
+});
+
 // Uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -93,7 +135,7 @@ app.get('/', (req, res) => res.send('Servidor CredGrup rodando!'));
 // Middleware de erro
 app.use(errorMiddleware);
 
-// Inicialização do admin padrão
+// Inicialização do admin padrão e configuração
 const initializeAdmin = async () => {
   const User = require('./models/User');
   const authService = require('./services/authService');
@@ -111,9 +153,21 @@ const initializeAdmin = async () => {
     } else {
       logger.info('Admin já existe, pulando criação');
     }
+
+    // Inicializar configuração padrão se não existir
+    const configExists = await Config.findOne();
+    if (!configExists) {
+      await new Config({
+        loanInterestRate: 0.1, // 10% padrão
+        investmentInterestRate: 0.15 // 15% padrão
+      }).save();
+      logger.info('Configuração padrão criada com sucesso');
+    } else {
+      logger.info('Configuração já existe, pulando criação');
+    }
   } catch (error) {
-    logger.error(`Erro ao inicializar admin: ${error.message}`);
-    throw error; // Propaga o erro para o startServer
+    logger.error(`Erro ao inicializar: ${error.message}`);
+    throw error;
   }
 };
 
