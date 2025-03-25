@@ -18,14 +18,16 @@ const login = async (email, password) => {
   const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
   return {
     token,
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    saldoReais: user.saldoReais,
-    wbtcBalance: user.wbtcBalance,
-    pontos: user.pontos,
-    walletAddress: user.walletAddress || '',
-    isAdmin: user.isAdmin,
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      saldoReais: user.saldoReais,
+      wbtcBalance: user.wbtcBalance,
+      pontos: user.pontos,
+      walletAddress: user.walletAddress || '',
+      isAdmin: user.isAdmin,
+    },
   };
 };
 
