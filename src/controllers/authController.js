@@ -17,7 +17,7 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     const { user, token } = await authService.login(email, password);
     logger.info(`Login bem-sucedido: ${email}`);
-    console.log('Resposta enviada:', { user, token }); // Adicione este log
+    console.log('Resposta enviada:', { user, token }); 
     res.json({ user, token });
   } catch (error) {
     logger.error(`Erro ao fazer login: ${error.message}`);
