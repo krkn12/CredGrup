@@ -1,5 +1,12 @@
 const path = require('path'); // Declarado apenas uma vez no topo
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Carrega o .env da raiz
+
+// Logs de depuração para verificar módulos
+console.log('Caminho do dotenv:', require.resolve('dotenv'));
+console.log('Caminho do express:', require.resolve('express'));
+console.log('Caminho do cookie-signature:', require.resolve('cookie-signature')); // Dependência interna do express
+console.log('Caminho do cookie:', require.resolve('cookie')); // Dependência interna do express
+
 const express = require('express');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
