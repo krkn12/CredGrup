@@ -18,6 +18,9 @@ router.post('/', async (req, res) => {
   try {
     const { amount, description } = req.body;
     if (amount <= 0) return res.status(400).json({ message: 'Valor inválido' });
+    const user = await User.findById(req.user.id);
+    if (user.brlBalance < amount) return res.status(400).json({ message: 'Saldo insuficiente' });
+
     const payment = new Payment({ user: req.user.id, amount, description });
     await payment.save();
     await new Transaction({ user: req.user.id, type: 'payment', amount, description: 'Pagamento solicitado: ' + description }).save();
@@ -33,13 +36,16 @@ router.put('/:id/approve', async (req, res) => {
     if (!payment) return res.status(404).json({ message: 'Pagamento não encontrado' });
     if (payment.status !== 'pending') return res.status(400).json({ message: 'Pagamento já processado' });
 
+    const user = await User.findById(payment.user);
+    if (user.brlBalance < payment.amount) return res.status(400).json({ message: 'Saldo insuficiente' });
+
     const config = await Config.findOne();
     const btcReward = payment.amount * (config.btcRewardRate || 0.0002);
-    payment.status = 'approved';
-    await payment.save();
 
-    const user = await User.findById(payment.user);
+    payment.status = 'approved';
+    user.brlBalance -= payment.amount;
     user.wbtcBalance = (user.wbtcBalance || 0) + btcReward;
+    await payment.save();
     await user.save();
 
     await new Transaction({ user: payment.user, type: 'payment', amount: payment.amount, description: 'Pagamento aprovado: ' + payment.description }).save();

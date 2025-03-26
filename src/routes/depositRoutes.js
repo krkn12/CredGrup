@@ -31,11 +31,12 @@ router.put('/:id/approve', async (req, res) => {
     const deposit = await Deposit.findById(req.params.id);
     if (!deposit) return res.status(404).json({ message: 'Depósito não encontrado' });
     if (deposit.status !== 'pending') return res.status(400).json({ message: 'Depósito já processado' });
+
     deposit.status = 'approved';
     await deposit.save();
 
     const user = await User.findById(deposit.user);
-    user.brlBalance += deposit.amount;
+    user.brlBalance = (user.brlBalance || 0) + deposit.amount;
     await user.save();
 
     await new Transaction({ user: deposit.user, type: 'deposit', amount: deposit.amount, description: 'Depósito aprovado' }).save();
