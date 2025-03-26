@@ -15,14 +15,19 @@ const multer = require('multer');
 const Config = require('./models/Config');
 const User = require('./models/User');
 const Investment = require('./models/Investment');
+const Transaction = require('./models/Transaction');
+const axios = require('axios');
 
 // Verificação inicial das variáveis de ambiente
-if (!process.env.MONGO_URI) {
-  logger.error('MONGO_URI não está definido no .env');
-  process.exit(1);
-}
+const requiredEnv = ['MONGO_URI', 'JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'];
+requiredEnv.forEach((env) => {
+  if (!process.env[env]) {
+    logger.error(`${env} não está definido no .env`);
+    process.exit(1);
+  }
+});
 
-// Configuração do Multer para uploads
+// Configuração do Multer para uploads com validação
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
   filename: (req, file, cb) => {
@@ -30,7 +35,35 @@ const storage = multer.diskStorage({
     cb(null, `${uniqueSuffix}-${file.originalname}`);
   },
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Apenas JPEG, PNG ou PDF são permitidos'));
+    }
+    cb(null, true);
+  },
+});
+
+const app = express();
+
+// Confiar em proxies para rate-limiting
+app.set('trust proxy', 1);
+
+// CORS ajustado
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' ? 'https://credgrup.vercel.app/' : 'http://localhost:3000/',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+}));
+
+// Segurança
+app.use(securityConfig.helmet);
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(rateLimitMiddleware);
 
 // Rotas
 const authRoutes = require('./routes/authRoutes');
@@ -42,27 +75,7 @@ const loanRoutes = require('./routes/loanRoutes');
 const investmentRoutes = require('./routes/investmentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-const app = express();
-
-// Confiar em proxies para express-rate-limit
-app.set('trust proxy', 1);
-
-// CORS ajustado para produção e testes locais
-app.use(cors({
-  origin: ['https://credgrup.vercel.app', 'http://localhost:3000'],
-  credentials: true,
-}));
-
-// Segurança
-app.use(securityConfig.helmet);
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(rateLimitMiddleware);
-
-// Rotas públicas
-app.use('/api/users', authRoutes);
-
-// Rotas protegidas
+app.use('/api/auth', authRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/deposits', authMiddleware, depositRoutes);
 app.use('/api/payments', authMiddleware, paymentRoutes);
@@ -74,25 +87,40 @@ app.use('/api/admin', authMiddleware, (req, res, next) => {
   next();
 }, adminRoutes);
 
-// Rota para dados da carteira (atualizada)
+// Endpoint para dados da carteira
 app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
 
-    // Calcular total investido
     const investments = await Investment.find({ user: req.user.id, status: 'approved' });
+    const transactions = await Transaction.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(10);
     const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
-
-    // Calcular valor disponível para empréstimo (ex.: 2x o total investido ou saldo, o menor dos dois)
-    const loanMultiplier = 2; // Ajustável no futuro via Config
+    const loanMultiplier = 2;
     const loanAvailable = Math.min(user.wbtcBalance * loanMultiplier, totalInvested * loanMultiplier);
 
+    const { data: { 'wrapped-bitcoin': { brl: wbtcToBrlRate } } } = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=brl'
+    );
+    const { data: { usd: { brl: usdToBrlRate } } } = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price?ids=usd&vs_currencies=brl'
+    );
+
+    const wbtcBalanceBrl = user.wbtcBalance * wbtcToBrlRate;
+    const totalInvestedBrl = totalInvested * usdToBrlRate;
+    const loanAvailableBrl = loanAvailable * usdToBrlRate;
+
     res.json({
-      wbtcBalance: user.wbtcBalance || 0,
-      totalInvested: totalInvested || 0,
-      loanAvailable: loanAvailable || 0,
-      lastUpdated: user.updatedAt || new Date(),
+      wbtcBalance: wbtcBalanceBrl,
+      totalInvested: totalInvestedBrl,
+      loanAvailable: loanAvailableBrl,
+      recentTransactions: transactions.map(t => ({
+        type: t.type,
+        amount: t.amount * (t.currency === 'BRL' ? 1 : usdToBrlRate),
+        date: t.createdAt,
+      })),
+      lastUpdated: new Date(),
+      currency: 'BRL',
     });
   } catch (error) {
     logger.error(`Erro ao obter dados da carteira: ${error.message}`);
@@ -100,71 +128,77 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   }
 });
 
-// Rotas de configuração
+// Configurações administrativas
 app.get('/api/admin/config', authMiddleware, async (req, res) => {
-  try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
-    const config = await Config.findOne();
-    if (!config) return res.status(404).json({ message: 'Configuração não encontrada' });
-    res.json(config);
-  } catch (error) {
-    logger.error(`Erro ao obter configuração: ${error.message}`);
-    res.status(500).json({ message: 'Erro ao obter configuração' });
-  }
+  if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
+  const config = await Config.findOne();
+  if (!config) return res.status(404).json({ message: 'Configuração não encontrada' });
+  res.json(config);
 });
 
 app.put('/api/admin/config', authMiddleware, async (req, res) => {
+  if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
+  const { loanInterestRate, investmentInterestRate, btcRewardRate } = req.body;
+  if ([loanInterestRate, investmentInterestRate, btcRewardRate].some(rate => rate < 0 || rate > 1)) {
+    return res.status(400).json({ message: 'As taxas devem estar entre 0 e 1 (0% a 100%)' });
+  }
+  const config = await Config.findOneAndUpdate(
+    {},
+    { loanInterestRate, investmentInterestRate, btcRewardRate, updatedAt: new Date() },
+    { new: true, upsert: true }
+  );
+  res.json(config);
+});
+
+// Upload de documentos para KYC
+app.post('/api/users/kyc', authMiddleware, upload.single('document'), async (req, res) => {
   try {
-    if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
-    const { loanInterestRate, investmentInterestRate, btcRewardRate } = req.body;
-    if (loanInterestRate < 0 || investmentInterestRate < 0 || btcRewardRate < 0) {
-      return res.status(400).json({ message: 'As taxas não podem ser negativas' });
-    }
-    const config = await Config.findOneAndUpdate(
-      {},
-      { loanInterestRate, investmentInterestRate, btcRewardRate, updatedAt: new Date() },
-      { new: true, upsert: true }
-    );
-    res.json(config);
+    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo enviado' });
+    const user = await User.findById(req.user.id);
+    user.kycDocument = req.file.path;
+    user.kycStatus = 'pending';
+    await user.save();
+    res.json({ message: 'Documento enviado para verificação' });
   } catch (error) {
-    logger.error(`Erro ao atualizar configuração: ${error.message}`);
-    res.status(500).json({ message: 'Erro ao atualizar configuração' });
+    logger.error(`Erro no upload KYC: ${error.message}`);
+    res.status(500).json({ message: 'Erro ao enviar documento' });
   }
 });
 
-// Uploads
+// Servir uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rota padrão
-app.get('/', (req, res) => res.send('Servidor CredGrup rodando!'));
+app.get('/', (req, res) => res.send('Fintech Server Online'));
 
 // Middleware de erro
 app.use(errorMiddleware);
 
-// Inicialização do admin padrão e configuração
-const initializeAdmin = async () => {
+// Inicialização
+const initializeApp = async () => {
   const authService = require('./services/authService');
   try {
     const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
     if (!adminExists) {
       await authService.register({
-        name: process.env.ADMIN_NAME,
+        name: process.env.ADMIN_NAME || 'Admin',
         email: process.env.ADMIN_EMAIL,
-        phone: process.env.ADMIN_PHONE,
+        phone: process.env.ADMIN_PHONE || '00000000000',
         password: process.env.ADMIN_PASSWORD,
         isAdmin: true,
+        kycStatus: 'approved',
       });
-      logger.info('Admin padrão criado com sucesso');
+      logger.info('Admin padrão criado');
     }
 
     const configExists = await Config.findOne();
     if (!configExists) {
       await new Config({
-        loanInterestRate: 0.1,
-        investmentInterestRate: 0.15,
-        btcRewardRate: 0.0002,
+        loanInterestRate: 0.05, // 5%
+        investmentInterestRate: 0.08, // 8%
+        btcRewardRate: 0.0001, // 0.01%
       }).save();
-      logger.info('Configuração padrão criada com sucesso');
+      logger.info('Configuração padrão criada');
     }
   } catch (error) {
     logger.error(`Erro ao inicializar: ${error.message}`);
@@ -175,9 +209,9 @@ const initializeAdmin = async () => {
 // Iniciar servidor
 const startServer = async () => {
   try {
-    logger.info('Iniciando o servidor...');
+    logger.info('Iniciando servidor...');
     await connectDB();
-    await initializeAdmin();
+    await initializeApp();
 
     const PORT = process.env.PORT || 5000;
     if (process.env.NODE_ENV === 'production' && process.env.SSL_KEY && process.env.SSL_CERT) {
@@ -186,11 +220,11 @@ const startServer = async () => {
         cert: fs.readFileSync(process.env.SSL_CERT),
       };
       https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-        logger.info(`Servidor rodando na porta ${PORT} em modo HTTPS`);
+        logger.info(`Servidor HTTPS na porta ${PORT}`);
       });
     } else {
       app.listen(PORT, '0.0.0.0', () => {
-        logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
+        logger.info(`Servidor HTTP na porta ${PORT}`);
       });
     }
 
@@ -204,7 +238,7 @@ const startServer = async () => {
       process.exit(1);
     });
   } catch (error) {
-    logger.error(`Erro ao iniciar o servidor: ${error.message}`);
+    logger.error(`Erro ao iniciar servidor: ${error.message}`);
     process.exit(1);
   }
 };
