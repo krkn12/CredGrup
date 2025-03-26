@@ -1,11 +1,6 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-console.log('Caminho do dotenv:', require.resolve('dotenv'));
-console.log('Caminho do express:', require.resolve('express'));
-console.log('Caminho do cookie-signature:', require.resolve('cookie-signature'));
-console.log('Caminho do cookie:', require.resolve('cookie'));
-
 const express = require('express');
 const connectDB = require('./config/database');
 const securityConfig = require('./config/security');
@@ -16,6 +11,7 @@ const rateLimitMiddleware = require('./middleware/rateLimitMiddleware');
 const cors = require('cors');
 const multer = require('multer');
 const Config = require('./models/Config');
+const User = require('./models/User');
 
 // Configuração do Multer para uploads
 const storage = multer.diskStorage({
@@ -42,8 +38,8 @@ const app = express();
 // Confiar em proxies para express-rate-limit
 app.set('trust proxy', 1);
 
-// CORS
-app.use(cors({ origin: 'https://credgrup.vercel.app' }));
+// CORS ajustado para aceitar localhost e produção
+app.use(cors({ origin: ['https://credgrup.vercel.app', 'http://localhost:3000'] }));
 
 // Segurança
 app.use(securityConfig.helmet);
@@ -69,11 +65,8 @@ app.use('/api/admin', authMiddleware, (req, res, next) => {
 // Rota para dados da carteira
 app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   try {
-    const User = require('./models/User');
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuário não encontrado' });
-    }
+    if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
     res.json({
       wbtcBalance: user.wbtcBalance || 0,
       lastUpdated: user.updatedAt || new Date(),
@@ -84,16 +77,12 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   }
 });
 
-// Rotas de configuração
+// Rotas de configuração (adicionado btcRewardRate)
 app.get('/api/admin/config', authMiddleware, async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Acesso negado' });
-    }
+    if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
     const config = await Config.findOne();
-    if (!config) {
-      return res.status(404).json({ message: 'Configuração não encontrada' });
-    }
+    if (!config) return res.status(404).json({ message: 'Configuração não encontrada' });
     res.json(config);
   } catch (error) {
     logger.error(`Erro ao obter configuração: ${error.message}`);
@@ -103,20 +92,14 @@ app.get('/api/admin/config', authMiddleware, async (req, res) => {
 
 app.put('/api/admin/config', authMiddleware, async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ message: 'Acesso negado' });
-    }
-    const { loanInterestRate, investmentInterestRate } = req.body;
-    if (loanInterestRate < 0 || investmentInterestRate < 0) {
+    if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
+    const { loanInterestRate, investmentInterestRate, btcRewardRate } = req.body;
+    if (loanInterestRate < 0 || investmentInterestRate < 0 || btcRewardRate < 0) {
       return res.status(400).json({ message: 'As taxas não podem ser negativas' });
     }
     const config = await Config.findOneAndUpdate(
       {},
-      { 
-        loanInterestRate, 
-        investmentInterestRate,
-        updatedAt: new Date()
-      },
+      { loanInterestRate, investmentInterestRate, btcRewardRate, updatedAt: new Date() },
       { new: true, upsert: true }
     );
     res.json(config);
@@ -137,7 +120,6 @@ app.use(errorMiddleware);
 
 // Inicialização do admin padrão e configuração
 const initializeAdmin = async () => {
-  const User = require('./models/User');
   const authService = require('./services/authService');
   try {
     const adminExists = await User.findOne({ email: process.env.ADMIN_EMAIL });
@@ -154,16 +136,14 @@ const initializeAdmin = async () => {
       logger.info('Admin já existe, pulando criação');
     }
 
-    // Inicializar configuração padrão se não existir
     const configExists = await Config.findOne();
     if (!configExists) {
       await new Config({
         loanInterestRate: 0.1, // 10% padrão
-        investmentInterestRate: 0.15 // 15% padrão
+        investmentInterestRate: 0.15, // 15% padrão
+        btcRewardRate: 0.0002, // 0.02% padrão
       }).save();
       logger.info('Configuração padrão criada com sucesso');
-    } else {
-      logger.info('Configuração já existe, pulando criação');
     }
   } catch (error) {
     logger.error(`Erro ao inicializar: ${error.message}`);
@@ -171,7 +151,7 @@ const initializeAdmin = async () => {
   }
 };
 
-// Iniciar servidor com tratamento de erros
+// Iniciar servidor
 const startServer = async () => {
   try {
     logger.info('Iniciando o servidor...');
@@ -183,7 +163,6 @@ const startServer = async () => {
       logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
     });
 
-    // Tratamento de erros não capturados
     process.on('uncaughtException', (error) => {
       logger.error(`Erro não capturado: ${error.message}`);
       process.exit(1);
