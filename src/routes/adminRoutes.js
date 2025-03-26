@@ -1,21 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const adminController = require('../controllers/adminController');
+const Deposit = require('../models/Deposit');
+const Payment = require('../models/Payment');
+const Loan = require('../models/Loan');
+const Investment = require('../models/Investment');
 
-router.get('/users', adminController.getAllUsers);
-router.put('/users/:id', adminController.updateUser);
-router.delete('/users/:id', adminController.deleteUser);
-router.get('/deposits', adminController.getAllDeposits);
-router.put('/deposits/:id', adminController.updateDeposit);
-router.get('/deposits/:id/comprovante', adminController.getDepositReceipt);
-router.get('/payments', adminController.getAllPayments);
-router.put('/payments/:id', adminController.updatePayment);
-router.get('/transactions', adminController.getAllTransactions);
-router.put('/transactions/:id', adminController.updateTransaction);
-router.delete('/transactions/:id', adminController.deleteTransaction);
-router.get('/loans', adminController.getAllLoans);
-router.put('/loans/:id', adminController.updateLoan);
-router.get('/investments', adminController.getAllInvestments);
-router.put('/investments/release/:userId', adminController.releaseInvestment);
+router.get('/pending', async (req, res) => {
+  try {
+    const [deposits, payments, loans, investments] = await Promise.all([
+      Deposit.find({ status: 'pending' }),
+      Payment.find({ status: 'pending' }),
+      Loan.find({ status: 'pending' }),
+      Investment.find({ status: 'pending' }),
+    ]);
+    res.json({ deposits, payments, loans, investments });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao listar pendências' });
+  }
+});
 
 module.exports = router;

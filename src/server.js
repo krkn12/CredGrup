@@ -1,5 +1,7 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const https = require('https');
+const fs = require('fs');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const express = require('express');
 const connectDB = require('./config/database');
@@ -13,9 +15,15 @@ const multer = require('multer');
 const Config = require('./models/Config');
 const User = require('./models/User');
 
+// Verificação inicial das variáveis de ambiente
+if (!process.env.MONGO_URI) {
+  logger.error('MONGO_URI não está definido no .env');
+  process.exit(1);
+}
+
 // Configuração do Multer para uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads')),
+  destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, `${uniqueSuffix}-${file.originalname}`);
@@ -38,8 +46,11 @@ const app = express();
 // Confiar em proxies para express-rate-limit
 app.set('trust proxy', 1);
 
-// CORS ajustado para aceitar localhost e produção
-app.use(cors({ origin: ['https://credgrup.vercel.app', 'http://localhost:3000'] }));
+// CORS ajustado para produção e testes locais
+app.use(cors({
+  origin: ['https://credgrup.vercel.app', 'http://localhost:3000'],
+  credentials: true,
+}));
 
 // Segurança
 app.use(securityConfig.helmet);
@@ -77,7 +88,7 @@ app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   }
 });
 
-// Rotas de configuração (adicionado btcRewardRate)
+// Rotas de configuração
 app.get('/api/admin/config', authMiddleware, async (req, res) => {
   try {
     if (!req.user.isAdmin) return res.status(403).json({ message: 'Acesso negado' });
@@ -110,7 +121,7 @@ app.put('/api/admin/config', authMiddleware, async (req, res) => {
 });
 
 // Uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rota padrão
 app.get('/', (req, res) => res.send('Servidor CredGrup rodando!'));
@@ -132,16 +143,14 @@ const initializeAdmin = async () => {
         isAdmin: true,
       });
       logger.info('Admin padrão criado com sucesso');
-    } else {
-      logger.info('Admin já existe, pulando criação');
     }
 
     const configExists = await Config.findOne();
     if (!configExists) {
       await new Config({
-        loanInterestRate: 0.1, // 10% padrão
-        investmentInterestRate: 0.15, // 15% padrão
-        btcRewardRate: 0.0002, // 0.02% padrão
+        loanInterestRate: 0.1,
+        investmentInterestRate: 0.15,
+        btcRewardRate: 0.0002,
       }).save();
       logger.info('Configuração padrão criada com sucesso');
     }
@@ -159,16 +168,26 @@ const startServer = async () => {
     await initializeAdmin();
 
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, '0.0.0.0', () => {
-      logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
-    });
+    if (process.env.NODE_ENV === 'production' && process.env.SSL_KEY && process.env.SSL_CERT) {
+      const httpsOptions = {
+        key: fs.readFileSync(process.env.SSL_KEY),
+        cert: fs.readFileSync(process.env.SSL_CERT),
+      };
+      https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+        logger.info(`Servidor rodando na porta ${PORT} em modo HTTPS`);
+      });
+    } else {
+      app.listen(PORT, '0.0.0.0', () => {
+        logger.info(`Servidor rodando na porta ${PORT} em modo HTTP`);
+      });
+    }
 
     process.on('uncaughtException', (error) => {
       logger.error(`Erro não capturado: ${error.message}`);
       process.exit(1);
     });
 
-    process.on('unhandledRejection', (reason, promise) => {
+    process.on('unhandledRejection', (reason) => {
       logger.error(`Rejeição não tratada: ${reason}`);
       process.exit(1);
     });
