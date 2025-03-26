@@ -14,6 +14,7 @@ const cors = require('cors');
 const multer = require('multer');
 const Config = require('./models/Config');
 const User = require('./models/User');
+const Investment = require('./models/Investment');
 
 // Verificação inicial das variáveis de ambiente
 if (!process.env.MONGO_URI) {
@@ -73,13 +74,24 @@ app.use('/api/admin', authMiddleware, (req, res, next) => {
   next();
 }, adminRoutes);
 
-// Rota para dados da carteira
+// Rota para dados da carteira (atualizada)
 app.get('/api/wallet/data', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+    // Calcular total investido
+    const investments = await Investment.find({ user: req.user.id, status: 'approved' });
+    const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
+
+    // Calcular valor disponível para empréstimo (ex.: 2x o total investido ou saldo, o menor dos dois)
+    const loanMultiplier = 2; // Ajustável no futuro via Config
+    const loanAvailable = Math.min(user.wbtcBalance * loanMultiplier, totalInvested * loanMultiplier);
+
     res.json({
       wbtcBalance: user.wbtcBalance || 0,
+      totalInvested: totalInvested || 0,
+      loanAvailable: loanAvailable || 0,
       lastUpdated: user.updatedAt || new Date(),
     });
   } catch (error) {

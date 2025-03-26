@@ -7,7 +7,10 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   password: { type: String, required: true },
   isAdmin: { type: Boolean, default: false },
-  wbtcBalance: { type: Number, default: 0 },
+  wbtcBalance: { type: Number, default: 0 }, // Saldo em WBTC
+  brlBalance: { type: Number, default: 0 }, // Saldo em reais
+  brlInvested: { type: Number, default: 0 }, // Valor investido em reais
+  wbtcInvested: { type: Number, default: 0 }, // Valor investido em WBTC
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

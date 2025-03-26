@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Deposit = require('../models/Deposit');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
 
 router.get('/', async (req, res) => {
   try {
@@ -32,6 +33,11 @@ router.put('/:id/approve', async (req, res) => {
     if (deposit.status !== 'pending') return res.status(400).json({ message: 'Depósito já processado' });
     deposit.status = 'approved';
     await deposit.save();
+
+    const user = await User.findById(deposit.user);
+    user.brlBalance += deposit.amount;
+    await user.save();
+
     await new Transaction({ user: deposit.user, type: 'deposit', amount: deposit.amount, description: 'Depósito aprovado' }).save();
     res.json(deposit);
   } catch (error) {
