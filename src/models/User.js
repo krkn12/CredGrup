@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -10,5 +11,19 @@ const userSchema = new mongoose.Schema({
   pontos: { type: Number, default: 0 },
   isAdmin: { type: Boolean, default: false },
 }, { timestamps: true });
+
+// Hash da senha antes de salvar
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  console.log("Senha hasheada antes de salvar:", this.password); // Log para depuração
+  next();
+});
+
+// Método para comparar senhas
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('User', userSchema);
