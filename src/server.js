@@ -1,7 +1,7 @@
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const express = require('express');
 const connectDB = require('./config/database');
