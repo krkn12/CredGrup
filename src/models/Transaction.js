@@ -2,10 +2,11 @@ const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['deposit', 'payment', 'loan', 'investment', 'btc_reward'], required: true },
+  type: { type: String, enum: ['deposit', 'withdrawal', 'transfer', 'payment'], required: true },
   amount: { type: Number, required: true },
-  description: { type: String },
-  createdAt: { type: Date, default: Date.now },
-});
+  currency: { type: String, enum: ['BRL', 'USD'], default: 'BRL' },
+  status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+  description: String
+}, { timestamps: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -1,26 +1,19 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const logger = require('../utils/logger');
 
-const register = async ({ name, email, phone, password, isAdmin = false }) => {
-  let user = await User.findOne({ email });
-  if (user) throw new Error('Email já registrado');
+module.exports = {
+  register: async (userData) => {
+    try {
+      const user = new User(userData);
+      await user.save();
+      return user;
+    } catch (error) {
+      logger.error(`Register service error: ${error.message}`);
+      throw error;
+    }
+  },
   
-  user = new User({ name, email, phone, password, isAdmin });
-  await user.save();
-
-  const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  return { user: user.toJSON(), token };
-};
-
-const login = async (email, password) => {
-  const user = await User.findOne({ email });
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new Error('Credenciais inválidas');
+  findUserByEmail: async (email) => {
+    return await User.findOne({ email }).select('+password');
   }
-
-  const token = jwt.sign({ id: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  return { user: user.toJSON(), token };
 };
-
-module.exports = { register, login };

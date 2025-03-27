@@ -1,27 +1,33 @@
-const authService = require('../services/authService');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 
-const register = async (req, res) => {
+module.exports = {
+  login: async (req, res) => {  // ← Esta função deve existir
     try {
-        const user = await authService.register(req.body);
-        logger.info(`Usuário registrado: ${user.email}`);
-        res.status(201).json(user);
+      const { email, password } = req.body;
+      const user = await User.findOne({ email }).select('+password');
+      
+      if (!user || !(await user.comparePassword(password))) {
+        return res.status(401).json({ message: 'Credenciais inválidas' });
+      }
+      
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+      res.json({ token });
     } catch (error) {
-        logger.error(`Erro ao registrar: ${error.message}`);
-        res.status(400).json({ message: error.message });
+      logger.error(`Login error: ${error.message}`);
+      res.status(500).json({ message: 'Erro no servidor' });
     }
-};
+  },
 
-const login = async (req, res) => {
+  register: async (req, res) => {  // ← Esta função deve existir
     try {
-        const { email, password } = req.body;
-        const { user, token } = await authService.login(email, password);
-        logger.info(`Login bem-sucedido: ${email}`);
-        res.json({ user, token });
+      const user = new User(req.body);
+      await user.save();
+      res.status(201).json(user);
     } catch (error) {
-        logger.error(`Erro ao fazer login: ${error.message}`);
-        res.status(401).json({ message: error.message });
+      logger.error(`Register error: ${error.message}`);
+      res.status(400).json({ message: 'Erro no registro' });
     }
+  }
 };
-
-module.exports = { register, login };

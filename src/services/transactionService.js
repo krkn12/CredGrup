@@ -1,7 +1,24 @@
 const Transaction = require('../models/Transaction');
+const logger = require('../utils/logger');
 
-const updateTransaction = async (id, data) => Transaction.findByIdAndUpdate(id, data, { new: true });
+module.exports = {
+  createTransaction: async (userId, transactionData) => {
+    try {
+      const transaction = new Transaction({
+        user: userId,
+        ...transactionData
+      });
+      await transaction.save();
+      return transaction;
+    } catch (error) {
+      logger.error(`Transaction error: ${error.message}`);
+      throw error;
+    }
+  },
 
-const deleteTransaction = async (id) => Transaction.findByIdAndDelete(id);
-
-module.exports = { updateTransaction, deleteTransaction };
+  getUserTransactions: async (userId, limit = 10) => {
+    return await Transaction.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .limit(limit);
+  }
+};

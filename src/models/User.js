@@ -4,23 +4,20 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true },
-  password: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   isAdmin: { type: Boolean, default: false },
-  wbtcBalance: { type: Number, default: 0 }, // Saldo em WBTC
-  brlBalance: { type: Number, default: 0 }, // Saldo em reais
-  brlInvested: { type: Number, default: 0 }, // Valor investido em reais
-  wbtcInvested: { type: Number, default: 0 }, // Valor investido em WBTC
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
+  kycStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  wbtcBalance: { type: Number, default: 0 }
+}, { timestamps: true });
 
-userSchema.pre('save', async function (next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
-  this.updatedAt = new Date();
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('User', userSchema);
