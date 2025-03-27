@@ -1,12 +1,12 @@
+// src/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
+const authAdmin = require('../middleware/authAdmin'); // Caminho corrigido
 const Deposit = require('../models/Deposit');
-const Payment = require('../models/Payment');
-const Loan = require('../models/Loan');
-const Investment = require('../models/Investment');
-const authAdmin = require('../middleware/authAdmin'); // Middleware que verifica se o usuário é admin
+// ... outros requires
 
-router.get('/pending', async (req, res) => {
+// Rota protegida por autenticação admin
+router.get('/pending', authAdmin, async (req, res) => {
   try {
     const [deposits, payments, loans, investments] = await Promise.all([
       Deposit.find({ status: 'pending' }),
