@@ -4,6 +4,7 @@ const Deposit = require('../models/Deposit');
 const Payment = require('../models/Payment');
 const Loan = require('../models/Loan');
 const Investment = require('../models/Investment');
+const authAdmin = require('../middleware/authAdmin'); // Middleware que verifica se o usuário é admin
 
 router.get('/pending', async (req, res) => {
   try {

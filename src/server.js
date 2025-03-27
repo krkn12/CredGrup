@@ -9,6 +9,10 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+
+// Habilitar trust proxy para usar X-Forwarded-For corretamente
+app.set('trust proxy', true); // Ou configure conforme seu ambiente (veja detalhes abaixo)
+
 // Configurações básicas
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
